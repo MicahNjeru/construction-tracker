@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+
+{% block title %}Delete Material - {{ material.description }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <h4 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Confirm Deletion</h4>
+            </div>
+            <div class="card-body">
+                <h5>Are you sure you want to delete this material entry?</h5>
+                <div class="alert alert-warning mt-3">
+                    <p class="mb-2"><strong>Type:</strong> {{ material.get_material_type_display }}</p>
+                    <p class="mb-2"><strong>Description:</strong> {{ material.description }}</p>
+                    <p class="mb-2"><strong>Quantity:</strong> {{ material.quantity }} {{ material.unit.abbreviation }}</p>
+                    <p class="mb-2"><strong>Cost:</strong> ${{ material.cost }}</p>
+                    <p class="mb-0"><strong>Project:</strong> {{ project.name }}</p>
+                </div>
+                
+                {% if material.has_receipt %}
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-circle"></i> 
+                    <strong>Warning:</strong> This material entry has an attached receipt that will also be deleted.
+                </div>
+                {% endif %}
+                
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'project_detail' project.pk %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash"></i> Yes, Delete Material
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

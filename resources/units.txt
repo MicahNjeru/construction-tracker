@@ -1,0 +1,53 @@
+# ====================================================================================
+# File: units.txt
+# ====================================================================================
+
+# Material Units File
+# Format: unit_name,abbreviation
+# Lines starting with # are comments
+
+# Weight/Mass Units
+kilograms,kg
+grams,g
+tons,ton
+pounds,lb
+ounces,oz
+
+# Length Units
+meters,m
+centimeters,cm
+millimeters,mm
+feet,ft
+inches,in
+yards,yd
+
+# Volume Units
+liters,L
+milliliters,mL
+gallons,gal
+cubic meters,m³
+cubic feet,ft³
+
+# Area Units
+square meters,m²
+square feet,ft²
+square yards,yd²
+
+# Count/Quantity Units
+pieces,pcs
+bags,bags
+boxes,box
+bundles,bdl
+rolls,roll
+sheets,sht
+packs,pk
+units,unit
+dozen,doz
+truckloads,truck
+
+# Specialized Construction Units
+bags of cement,bags
+cubic yards,yd³
+linear feet,lf
+board feet,bf
+pallets,plt

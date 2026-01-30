@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+
+{% block title %}Upload Receipt - {{ material.description }}{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'project_list' %}">Projects</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'project_detail' project.pk %}">{{ project.name }}</a></li>
+            <li class="breadcrumb-item active">Upload Receipt</li>
+        </ol>
+    </nav>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">Upload Receipt</h4>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info mb-4">
+                    <h6><i class="bi bi-info-circle"></i> Material Entry Details</h6>
+                    <p class="mb-1"><strong>Type:</strong> {{ material.get_material_type_display }}</p>
+                    <p class="mb-1"><strong>Description:</strong> {{ material.description }}</p>
+                    <p class="mb-1"><strong>Cost:</strong> ${{ material.cost }}</p>
+                    <p class="mb-0"><strong>Date:</strong> {{ material.purchase_date|date:"F d, Y" }}</p>
+                </div>
+                
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.file.id_for_label }}" class="form-label">Receipt File *</label>
+                        {{ form.file }}
+                        <small class="form-text text-muted">
+                            Accepted formats: JPG, JPEG, PNG, GIF, WEBP, PDF (Max 10MB)
+                        </small>
+                        {% if form.file.errors %}
+                        <div class="text-danger small">{{ form.file.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i> 
+                        <strong>Note:</strong> The receipt image/PDF will be stored securely and can be downloaded later.
+                    </div>
+                    
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'project_detail' project.pk %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-circle"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-upload"></i> Upload Receipt
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

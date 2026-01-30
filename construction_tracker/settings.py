@@ -45,6 +45,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    # Custom Apps
+    'tracker'
 ]
 
 MIDDLEWARE = [
@@ -62,7 +65,7 @@ ROOT_URLCONF = 'construction_tracker.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'templates/')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -144,6 +147,15 @@ MEDIA_URL = '/media/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Login URLs
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'project_list'
+LOGOUT_REDIRECT_URL = 'login'
+
+# File upload settings
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB
 
 # Jazzmin Configuration
 JAZZMIN_SETTINGS = {
