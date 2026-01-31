@@ -40,7 +40,7 @@
         <div class="card stat-card danger">
             <div class="card-body">
                 <h6 class="text-muted">Total Budget</h6>
-                <h3 class="mb-0">${{ total_budget|floatformat:2 }}</h3>
+                <h3 class="mb-0">Ksh{{ total_budget|floatformat:2 }}</h3>
             </div>
         </div>
     </div>
@@ -78,7 +78,7 @@
                         </div>
                     </div>
                     <small class="text-muted">
-                        ${{ project.total_spent|floatformat:2 }} / ${{ project.budget|floatformat:2 }}
+                        Ksh{{ project.total_spent|floatformat:2 }} / Ksh{{ project.budget|floatformat:2 }}
                         ({{ percentage }}%)
                     </small>
                 </div>

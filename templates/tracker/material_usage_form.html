@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block title %}Update Material Usage - {{ material.description }}{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'project_list' %}">Projects</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'project_detail' project.pk %}">{{ project.name }}</a></li>
+            <li class="breadcrumb-item active">Update Usage</li>
+        </ol>
+    </nav>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">Update Material Usage</h4>
+            </div>
+            <div class="card-body">
+                <!-- Material Info -->
+                <div class="alert alert-info mb-4">
+                    <h6><i class="bi bi-box"></i> Material Details</h6>
+                    <p class="mb-1"><strong>Type:</strong> {{ material.get_material_type_display }}</p>
+                    <p class="mb-1"><strong>Description:</strong> {{ material.description }}</p>
+                    <p class="mb-1"><strong>Total Quantity:</strong> {{ material.quantity }} {{ material.unit.abbreviation }}</p>
+                    <p class="mb-0"><strong>Currently Used:</strong> {{ material.quantity_used }} {{ material.unit.abbreviation }}</p>
+                </div>
+                
+                <!-- Usage Progress -->
+                <div class="mb-4">
+                    <label class="form-label">Current Usage</label>
+                    <div class="progress" style="height: 30px;">
+                        {% widthratio material.quantity_used material.quantity 100 as usage_pct %}
+                        <div class="progress-bar {% if usage_pct >= 90 %}bg-danger{% elif usage_pct >= 75 %}bg-warning{% else %}bg-success{% endif %}" 
+                             role="progressbar" 
+                             style="width: {{ usage_pct }}%;">
+                            {{ usage_pct }}% Used
+                        </div>
+                    </div>
+                    <small class="text-muted">
+                        Remaining: {{ material.quantity_remaining }} {{ material.unit.abbreviation }}
+                    </small>
+                </div>
+                
+                <!-- Update Form -->
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.quantity_used.id_for_label }}" class="form-label">
+                            Quantity Used <span class="text-danger">*</span>
+                        </label>
+                        {{ form.quantity_used }}
+                        <small class="form-text text-muted">
+                            Maximum: {{ material.quantity }} {{ material.unit.abbreviation }}
+                        </small>
+                        {% if form.quantity_used.errors %}
+                        <div class="text-danger small">{{ form.quantity_used.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.notes.id_for_label }}" class="form-label">
+                            Usage Notes (Optional)
+                        </label>
+                        {{ form.notes }}
+                        <small class="form-text text-muted">
+                            Add notes about how this material was used
+                        </small>
+                        {% if form.notes.errors %}
+                        <div class="text-danger small">{{ form.notes.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'project_detail' project.pk %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-circle"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle"></i> Update Usage
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

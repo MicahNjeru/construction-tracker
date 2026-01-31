@@ -50,7 +50,7 @@
         <div class="card stat-card danger">
             <div class="card-body">
                 <h6 class="text-muted">Total Budget</h6>
-                <h2 class="mb-0">${{ total_budget|floatformat:2 }}</h2>
+                <h2 class="mb-0">Ksh{{ total_budget|floatformat:2 }}</h2>
             </div>
         </div>
     </div>
@@ -62,7 +62,7 @@
         <div class="card">
             <div class="card-body">
                 <h5 class="card-title">Budget Overview</h5>
-                <p class="text-muted mb-3">Total Spent: ${{ total_spent|floatformat:2 }} of ${{ total_budget|floatformat:2 }}</p>
+                <p class="text-muted mb-3">Total Spent: Ksh{{ total_spent|floatformat:2 }} of Ksh{{ total_budget|floatformat:2 }}</p>
                 <div class="progress" style="height: 25px;">
                     {% widthratio total_spent total_budget 100 as percentage %}
                     <div class="progress-bar {% if percentage >= 90 %}bg-danger{% elif percentage >= 75 %}bg-warning{% else %}bg-success{% endif %}" 
@@ -135,8 +135,8 @@
                                 </small>
                             </div>
                             <div class="text-end">
-                                <small class="text-muted d-block">${{ project.total_spent|floatformat:2 }}</small>
-                                <small class="text-muted">of ${{ project.budget|floatformat:2 }}</small>
+                                <small class="text-muted d-block">Ksh{{ project.total_spent|floatformat:2 }}</small>
+                                <small class="text-muted">of Ksh{{ project.budget|floatformat:2 }}</small>
                             </div>
                         </div>
                     </a>
@@ -169,7 +169,7 @@
                                 </small>
                             </div>
                             <div class="text-end">
-                                <strong>${{ material.cost|floatformat:2 }}</strong>
+                                <strong>Ksh{{ material.cost|floatformat:2 }}</strong>
                                 <small class="text-muted d-block">{{ material.purchase_date|date:"M d, Y" }}</small>
                             </div>
                         </div>
@@ -198,7 +198,7 @@ if (materialTypeCtx) {
             {% endfor %}
         ],
         datasets: [{
-            label: 'Cost ($)',
+            label: 'Cost (Ksh)',
             data: [
                 {% for item in material_type_stats %}
                 {{ item.total_cost }}{% if not forloop.last %},{% endif %}
@@ -247,7 +247,7 @@ if (monthlySpendingCtx) {
             {% endfor %}
         ],
         datasets: [{
-            label: 'Spending ($)',
+            label: 'Spending (Ksh)',
             data: [
                 {% for item in monthly_spending %}
                 {{ item.total }}{% if not forloop.last %},{% endif %}
@@ -276,7 +276,7 @@ if (monthlySpendingCtx) {
                     beginAtZero: true,
                     ticks: {
                         callback: function(value) {
-                            return '$' + value.toLocaleString();
+                            return 'Ksh' + value.toLocaleString();
                         }
                     }
                 }

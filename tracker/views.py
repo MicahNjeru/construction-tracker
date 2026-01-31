@@ -1,16 +1,90 @@
-from django.shortcuts import render, redirect, get_object_or_404
+from datetime import datetime, timedelta
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Sum, Count, Q
 from django.db.models.functions import TruncMonth
-from django.http import HttpResponse, FileResponse, Http404
-from .models import Project, MaterialEntry, Receipt, MaterialUnit
-from .forms import ProjectForm, MaterialEntryForm, ReceiptUploadForm
-from django.http import FileResponse, Http404
+from django.http import HttpResponse, FileResponse, Http404, JsonResponse
+from django.shortcuts import render, redirect, get_object_or_404
+from .models import *
+from .forms import *
 import os
-from datetime import datetime, timedelta
 
 # Create your views here.
+
+
+# ==================== User Profile ====================
+
+@login_required
+def user_profile(request):
+    """View and edit user profile."""
+    profile, created = UserProfile.objects.get_or_create(user=request.user)
+    
+    if request.method == 'POST':
+        form = UserProfileForm(request.POST, instance=profile)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Profile updated successfully!')
+            return redirect('user_profile')
+    else:
+        form = UserProfileForm(instance=profile)
+    
+    context = {
+        'form': form,
+        'profile': profile,
+    }
+    return render(request, 'tracker/user_profile.html', context)
+
+
+@login_required
+def dashboard(request):
+    """Dashboard with overview and analytics - Phase 2: Enhanced."""
+    projects = Project.objects.filter(created_by=request.user)
+    
+    # Summary statistics
+    total_projects = projects.count()
+    active_projects = projects.filter(status='in_progress').count()
+    completed_projects = projects.filter(status='completed').count()
+    total_budget = projects.aggregate(Sum('budget'))['budget__sum'] or 0
+    total_spent = sum(p.total_spent for p in projects)
+    
+    # Recent materials
+    recent_materials = MaterialEntry.objects.filter(
+        project__created_by=request.user
+    ).order_by('-created_at')[:5]
+    
+    # Material type breakdown (across all projects)
+    material_type_stats = MaterialEntry.objects.filter(
+        project__created_by=request.user
+    ).values('material_type').annotate(
+        total_cost=Sum('cost'),
+        count=Count('id')
+    ).order_by('-total_cost')[:5]
+    
+    # Monthly spending (last 6 months)
+    six_months_ago = datetime.now().date() - timedelta(days=180)
+    monthly_spending = (
+        MaterialEntry.objects.filter(
+            project__created_by=request.user,
+            purchase_date__gte=six_months_ago
+        )
+        .annotate(month=TruncMonth('purchase_date'))
+        .values('month')
+        .annotate(total=Sum('cost'))
+        .order_by('month')
+    )
+    
+    context = {
+        'total_projects': total_projects,
+        'active_projects': active_projects,
+        'completed_projects': completed_projects,
+        'total_budget': total_budget,
+        'total_spent': total_spent,
+        'recent_materials': recent_materials,
+        'projects': projects[:5],
+        'material_type_stats': material_type_stats,
+        'monthly_spending': monthly_spending,
+    }
+    return render(request, 'tracker/dashboard.html', context)
 
 
 @login_required
@@ -162,6 +236,14 @@ def material_create(request, project_pk):
             material.project = project
             material.created_by = request.user
             material.save()
+            ActivityLog.objects.create(
+                project=project,
+                user=request.user,
+                action='material_added',
+                description=f"Added {material.get_material_type_display()}: {material.description}",
+                related_material=material
+            )
+            check_budget_alerts(project)
             messages.success(request, 'Material entry added successfully!')
             return redirect('project_detail', pk=project.pk)
     else:
@@ -184,6 +266,14 @@ def material_update(request, pk):
         form = MaterialEntryForm(request.POST, instance=material)
         if form.is_valid():
             form.save()
+            ActivityLog.objects.create(
+                project=project,
+                user=request.user,
+                action='material_updated',
+                description=f"Updated {material.get_material_type_display()}: {material.description}",
+                related_material=material
+            )
+            check_budget_alerts(project)
             messages.success(request, 'Material entry updated successfully!')
             return redirect('project_detail', pk=project.pk)
     else:
@@ -204,6 +294,12 @@ def material_delete(request, pk):
     project = material.project
     
     if request.method == 'POST':
+        ActivityLog.objects.create(
+            project=project,
+            user=request.user,
+            action='material_deleted',
+            description=f"Deleted {material.get_material_type_display()}: {material.description}"
+        )
         material.delete()
         messages.success(request, 'Material entry deleted successfully!')
         return redirect('project_detail', pk=project.pk)
@@ -332,58 +428,6 @@ def receipt_delete(request, pk):
 
 
 @login_required
-def dashboard(request):
-    """Dashboard with overview and analytics - Phase 2: Enhanced."""
-    projects = Project.objects.filter(created_by=request.user)
-    
-    # Summary statistics
-    total_projects = projects.count()
-    active_projects = projects.filter(status='in_progress').count()
-    completed_projects = projects.filter(status='completed').count()
-    total_budget = projects.aggregate(Sum('budget'))['budget__sum'] or 0
-    total_spent = sum(p.total_spent for p in projects)
-    
-    # Recent materials
-    recent_materials = MaterialEntry.objects.filter(
-        project__created_by=request.user
-    ).order_by('-created_at')[:5]
-    
-    # Material type breakdown (across all projects)
-    material_type_stats = MaterialEntry.objects.filter(
-        project__created_by=request.user
-    ).values('material_type').annotate(
-        total_cost=Sum('cost'),
-        count=Count('id')
-    ).order_by('-total_cost')[:5]
-    
-    # Monthly spending (last 6 months)
-    six_months_ago = datetime.now().date() - timedelta(days=180)
-    monthly_spending = (
-        MaterialEntry.objects.filter(
-            project__created_by=request.user,
-            purchase_date__gte=six_months_ago
-        )
-        .annotate(month=TruncMonth('purchase_date'))
-        .values('month')
-        .annotate(total=Sum('cost'))
-        .order_by('month')
-    )
-    
-    context = {
-        'total_projects': total_projects,
-        'active_projects': active_projects,
-        'completed_projects': completed_projects,
-        'total_budget': total_budget,
-        'total_spent': total_spent,
-        'recent_materials': recent_materials,
-        'projects': projects[:5],
-        'material_type_stats': material_type_stats,
-        'monthly_spending': monthly_spending,
-    }
-    return render(request, 'tracker/dashboard.html', context)
-
-
-@login_required
 def export_project_excel(request, pk):
     """Export project materials to Excel."""
     try:
@@ -494,9 +538,9 @@ def export_project_pdf(request, pk):
         ['Location:', project.location or 'N/A'],
         ['Status:', project.get_status_display()],
         ['Start Date:', project.start_date.strftime('%Y-%m-%d')],
-        ['Budget:', f'${project.budget:,.2f}'],
-        ['Total Spent:', f'${project.total_spent:,.2f}'],
-        ['Remaining:', f'${project.remaining_budget:,.2f}'],
+        ['Budget:', f'Ksh{project.budget:,.2f}'],
+        ['Total Spent:', f'Ksh{project.total_spent:,.2f}'],
+        ['Remaining:', f'Ksh{project.remaining_budget:,.2f}'],
     ]
     
     details_table = Table(details, colWidths=[2*inch, 4*inch])
@@ -523,7 +567,7 @@ def export_project_pdf(request, pk):
             material.get_material_type_display(),
             material.description[:40],
             f"{material.quantity} {material.unit.abbreviation}",
-            f'${material.cost:,.2f}'
+            f'Ksh{material.cost:,.2f}'
         ])
     
     material_table = Table(material_data, colWidths=[1*inch, 1.2*inch, 2.5*inch, 1*inch, 1*inch])
@@ -542,28 +586,453 @@ def export_project_pdf(request, pk):
     # Build PDF
     doc.build(elements)
     return response
-    """Dashboard with overview of all projects."""
-    projects = Project.objects.filter(created_by=request.user)
+
+
+# ==================== Material Usage Tracking ====================
+
+@login_required
+def update_material_usage(request, pk):
+    """Update material usage quantity."""
+    material = get_object_or_404(MaterialEntry, pk=pk)
+    project = material.project
     
-    # Summary statistics
-    total_projects = projects.count()
-    active_projects = projects.filter(status='in_progress').count()
-    completed_projects = projects.filter(status='completed').count()
-    total_budget = projects.aggregate(Sum('budget'))['budget__sum'] or 0
-    total_spent = sum(p.total_spent for p in projects)
+    if request.method == 'POST':
+        form = MaterialUsageForm(request.POST)
+        if form.is_valid():
+            new_quantity_used = form.cleaned_data['quantity_used']
+            usage_notes = form.cleaned_data.get('notes', '')
+            
+            # Validate
+            if new_quantity_used > material.quantity:
+                messages.error(request, 'Quantity used cannot exceed total quantity!')
+                return redirect('project_detail', pk=project.pk)
+            
+            # Update material
+            old_quantity_used = material.quantity_used
+            material.quantity_used = new_quantity_used
+            material.save()
+            
+            # Log activity
+            ActivityLog.objects.create(
+                project=project,
+                user=request.user,
+                action='material_used',
+                description=f"Updated usage for {material.description}: {old_quantity_used} → {new_quantity_used} {material.unit.abbreviation}. {usage_notes}",
+                related_material=material
+            )
+            
+            messages.success(request, 'Material usage updated successfully!')
+            return redirect('project_detail', pk=project.pk)
+    else:
+        form = MaterialUsageForm(initial={'quantity_used': material.quantity_used})
     
-    # Recent materials
-    recent_materials = MaterialEntry.objects.filter(
-        project__created_by=request.user
-    ).order_by('-created_at')[:5]
+    return render(request, 'tracker/material_usage_form.html', {
+        'form': form,
+        'material': material,
+        'project': project
+    })
+
+
+@login_required
+def quick_update_usage(request, pk):
+    """Quick AJAX update for material usage."""
+    if request.method == 'POST':
+        material = get_object_or_404(MaterialEntry, pk=pk)
+        quantity_used = request.POST.get('quantity_used')
+        
+        try:
+            quantity_used = float(quantity_used)
+            if quantity_used < 0 or quantity_used > float(material.quantity):
+                return JsonResponse({'success': False, 'error': 'Invalid quantity'})
+            
+            material.quantity_used = quantity_used
+            material.save()
+            
+            return JsonResponse({
+                'success': True,
+                'quantity_remaining': float(material.quantity_remaining),
+                'usage_percentage': float(material.usage_percentage)
+            })
+        except ValueError:
+            return JsonResponse({'success': False, 'error': 'Invalid number'})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request'})
+
+
+# ==================== Project Templates ====================
+
+@login_required
+def template_create(request):
+    """Create a new project template."""
+    if request.method == 'POST':
+        form = ProjectTemplateForm(request.POST)
+        if form.is_valid():
+            template = form.save(commit=False)
+            template.created_by = request.user
+            template.save()
+            messages.success(request, 'Template created successfully!')
+            return redirect('template_detail', pk=template.pk)
+    else:
+        form = ProjectTemplateForm()
+    
+    return render(request, 'tracker/template_form.html', {
+        'form': form,
+        'title': 'Create Template'
+    })
+
+
+@login_required
+def template_list(request):
+    """List all templates available to user."""
+    user_templates = ProjectTemplate.objects.filter(created_by=request.user)
+    public_templates = ProjectTemplate.objects.filter(is_public=True).exclude(created_by=request.user)
     
     context = {
-        'total_projects': total_projects,
-        'active_projects': active_projects,
-        'completed_projects': completed_projects,
-        'total_budget': total_budget,
-        'total_spent': total_spent,
-        'recent_materials': recent_materials,
-        'projects': projects[:5],  # Latest 5 projects
+        'user_templates': user_templates,
+        'public_templates': public_templates,
     }
-    return render(request, 'tracker/dashboard.html', context)
+    return render(request, 'tracker/template_list.html', context)
+
+
+@login_required
+def template_detail(request, pk):
+    """View template details and materials."""
+    template = get_object_or_404(ProjectTemplate, pk=pk)
+    materials = template.materials.all()
+    
+    # Calculate estimated total
+    estimated_total = materials.aggregate(Sum('estimated_cost'))['estimated_cost__sum'] or 0
+    
+    context = {
+        'template': template,
+        'materials': materials,
+        'estimated_total': estimated_total,
+    }
+    return render(request, 'tracker/template_detail.html', context)
+
+
+@login_required
+def template_update(request, pk):
+    """Update an existing project template."""
+    template = get_object_or_404(ProjectTemplate, pk=pk)
+    
+    # Check if user owns the template
+    if template.created_by != request.user:
+        messages.error(request, 'You do not have permission to edit this template.')
+        return redirect('template_list')
+    
+    if request.method == 'POST':
+        form = ProjectTemplateForm(request.POST, instance=template)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Template "{template.name}" updated successfully!')
+            return redirect('template_detail', pk=template.pk)
+    else:
+        form = ProjectTemplateForm(instance=template)
+    
+    return render(request, 'tracker/template_form.html', {
+        'form': form,
+        'title': 'Update Template',
+        'template': template
+    })
+
+
+@login_required
+def template_delete(request, pk):
+    """Delete a project template."""
+    template = get_object_or_404(ProjectTemplate, pk=pk)
+    
+    # Check if user owns the template
+    if template.created_by != request.user:
+        messages.error(request, 'You do not have permission to delete this template.')
+        return redirect('template_list')
+    
+    if request.method == 'POST':
+        template_name = template.name
+        material_count = template.materials.count()
+        template.delete()
+        messages.success(request, f'Template "{template_name}" and {material_count} materials deleted successfully!')
+        return redirect('template_list')
+    
+    return render(request, 'tracker/template_confirm_delete.html', {
+        'template': template,
+        'material_count': template.materials.count()
+    })
+
+
+@login_required
+def template_add_material(request, template_pk):
+    """Add material to template."""
+    template = get_object_or_404(ProjectTemplate, pk=template_pk)
+    
+    if request.method == 'POST':
+        form = TemplateMaterialForm(request.POST)
+        if form.is_valid():
+            material = form.save(commit=False)
+            material.template = template
+            material.save()
+            messages.success(request, 'Material added to template!')
+            return redirect('template_detail', pk=template.pk)
+    else:
+        form = TemplateMaterialForm()
+    
+    return render(request, 'tracker/template_material_form.html', {
+        'form': form,
+        'template': template
+    })
+
+
+@login_required
+def template_material_update(request, pk, material_pk):
+    """Update a material in a template."""
+    template = get_object_or_404(ProjectTemplate, pk=pk)
+    material = get_object_or_404(TemplateMaterial, pk=material_pk, template=template)
+    
+    # Check if user owns the template
+    if template.created_by != request.user:
+        messages.error(request, 'You do not have permission to edit this template.')
+        return redirect('template_list')
+    
+    if request.method == 'POST':
+        form = TemplateMaterialForm(request.POST, instance=material)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Template material updated successfully!')
+            return redirect('template_detail', pk=template.pk)
+    else:
+        form = TemplateMaterialForm(instance=material)
+    
+    return render(request, 'tracker/template_material_form.html', {
+        'form': form,
+        'template': template,
+        'material': material,
+        'title': 'Update Template Material'
+    })
+
+
+@login_required
+def template_material_delete(request, pk, material_pk):
+    """Delete a material from a template."""
+    template = get_object_or_404(ProjectTemplate, pk=pk)
+    material = get_object_or_404(TemplateMaterial, pk=material_pk, template=template)
+    
+    # Check if user owns the template
+    if template.created_by != request.user:
+        messages.error(request, 'You do not have permission to edit this template.')
+        return redirect('template_list')
+    
+    if request.method == 'POST':
+        material_description = material.description
+        material.delete()
+        messages.success(request, f'Material "{material_description}" removed from template!')
+        return redirect('template_detail', pk=template.pk)
+    
+    return render(request, 'tracker/template_material_confirm_delete.html', {
+        'template': template,
+        'material': material
+    })
+
+
+@login_required
+def create_project_from_template(request):
+    """Create a new project from a template."""
+    if request.method == 'POST':
+        form = CreateProjectFromTemplateForm(request.POST, user=request.user)
+        if form.is_valid():
+            template = form.cleaned_data['template']
+            
+            # Create project
+            project = Project.objects.create(
+                name=form.cleaned_data['name'],
+                location=form.cleaned_data['location'],
+                budget=form.cleaned_data['budget'],
+                start_date=form.cleaned_data['start_date'],
+                created_by=request.user,
+                created_from_template=template
+            )
+            
+            # Copy materials from template
+            for template_material in template.materials.all():
+                # Find or create unit
+                unit, created = MaterialUnit.objects.get_or_create(
+                    name=template_material.unit_name,
+                    defaults={'abbreviation': template_material.unit_name[:3]}
+                )
+                
+                MaterialEntry.objects.create(
+                    project=project,
+                    material_type=template_material.material_type,
+                    description=template_material.description,
+                    quantity=template_material.estimated_quantity,
+                    unit=unit,
+                    cost=template_material.estimated_cost,
+                    purchase_date=form.cleaned_data['start_date'],
+                    notes=template_material.notes,
+                    created_by=request.user
+                )
+            
+            # Log activity
+            ActivityLog.objects.create(
+                project=project,
+                user=request.user,
+                action='project_created',
+                description=f"Project created from template '{template.name}' with {template.materials.count()} materials"
+            )
+            
+            messages.success(request, f'Project created from template with {template.materials.count()} materials!')
+            return redirect('project_detail', pk=project.pk)
+    else:
+        form = CreateProjectFromTemplateForm(user=request.user)
+    
+    return render(request, 'tracker/create_from_template.html', {'form': form})
+
+
+# ==================== Project Photos ====================
+
+@login_required
+def project_photos(request, project_pk):
+    """View all photos for a project."""
+    project = get_object_or_404(Project, pk=project_pk)
+    photos = project.photos.all()
+    
+    context = {
+        'project': project,
+        'photos': photos,
+    }
+    return render(request, 'tracker/project_photos.html', context)
+
+
+@login_required
+def photo_upload(request, project_pk):
+    """Upload a photo to project gallery."""
+    project = get_object_or_404(Project, pk=project_pk)
+    
+    if request.method == 'POST':
+        form = ProjectPhotoForm(request.POST, request.FILES)
+        if form.is_valid():
+            photo = form.save(commit=False)
+            photo.project = project
+            photo.uploaded_by = request.user
+            if not photo.taken_date:
+                photo.taken_date = timezone.now().date()
+            photo.save()
+            
+            # Log activity
+            ActivityLog.objects.create(
+                project=project,
+                user=request.user,
+                action='photo_uploaded',
+                description=f"Uploaded photo: {photo.title or 'Untitled'}"
+            )
+            
+            messages.success(request, 'Photo uploaded successfully!')
+            return redirect('project_photos', project_pk=project.pk)
+    else:
+        form = ProjectPhotoForm()
+    
+    return render(request, 'tracker/photo_upload.html', {
+        'form': form,
+        'project': project
+    })
+
+
+@login_required
+def photo_delete(request, pk):
+    """Delete a project photo."""
+    photo = get_object_or_404(ProjectPhoto, pk=pk)
+    project = photo.project
+    
+    if request.method == 'POST':
+        # Log activity
+        ActivityLog.objects.create(
+            project=project,
+            user=request.user,
+            action='photo_deleted',
+            description=f"Deleted photo: {photo.title or 'Untitled'}"
+        )
+        
+        photo.delete()
+        messages.success(request, 'Photo deleted successfully!')
+        return redirect('project_photos', project_pk=project.pk)
+    
+    return render(request, 'tracker/photo_confirm_delete.html', {
+        'photo': photo,
+        'project': project
+    })
+
+
+# ==================== Activity Timeline ====================
+
+@login_required
+def project_timeline(request, pk):
+    """View project activity timeline."""
+    project = get_object_or_404(Project, pk=pk)
+    activities = project.activity_logs.all()[:50]  # Last 50 activities
+    
+    context = {
+        'project': project,
+        'activities': activities,
+    }
+    return render(request, 'tracker/project_timeline.html', context)
+
+
+# ==================== Budget Alerts ====================
+
+@login_required
+def budget_alerts(request):
+    """View all budget alerts for user's projects."""
+    user_projects = Project.objects.filter(created_by=request.user)
+    alerts = BudgetAlert.objects.filter(
+        project__in=user_projects
+    ).order_by('-created_at')[:20]
+    
+    unread_count = alerts.filter(is_read=False).count()
+    
+    context = {
+        'alerts': alerts,
+        'unread_count': unread_count,
+    }
+    return render(request, 'tracker/budget_alerts.html', context)
+
+
+@login_required
+def mark_alert_read(request, pk):
+    """Mark an alert as read."""
+    alert = get_object_or_404(BudgetAlert, pk=pk)
+    alert.is_read = True
+    alert.save()
+    
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'success': True})
+    
+    return redirect('budget_alerts')
+
+
+def check_budget_alerts(project):
+    """Helper function to check and create budget alerts."""
+    percentage = project.budget_utilization_percentage
+    
+    # Check for different alert levels
+    if percentage >= 100 and not project.budget_alerts.filter(alert_type='exceeded').exists():
+        BudgetAlert.objects.create(
+            project=project,
+            alert_type='exceeded',
+            percentage=percentage,
+            message=f"Budget exceeded! Spent ${project.total_spent} of ${project.budget} ({percentage:.1f}%)"
+        )
+    elif percentage >= 90 and not project.budget_alerts.filter(alert_type='critical').exists():
+        BudgetAlert.objects.create(
+            project=project,
+            alert_type='critical',
+            percentage=percentage,
+            message=f"Critical: {percentage:.1f}% of budget used (${project.total_spent} of ${project.budget})"
+        )
+    elif percentage >= 75 and not project.budget_alerts.filter(alert_type='warning').exists():
+        BudgetAlert.objects.create(
+            project=project,
+            alert_type='warning',
+            percentage=percentage,
+            message=f"Warning: {percentage:.1f}% of budget used (${project.total_spent} of ${project.budget})"
+        )
+
+

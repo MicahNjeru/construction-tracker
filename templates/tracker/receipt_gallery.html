@@ -26,7 +26,7 @@
     <div class="card-body">
         <div class="alert alert-info">
             <i class="bi bi-info-circle"></i> 
-            <strong>Material Details:</strong> {{ material.quantity }} {{ material.unit.abbreviation }} @ ${{ material.cost|floatformat:2 }} 
+            <strong>Material Details:</strong> {{ material.quantity }} {{ material.unit.abbreviation }} @ Ksh{{ material.cost|floatformat:2 }} 
             purchased on {{ material.purchase_date|date:"F d, Y" }}
             {% if material.supplier %} from {{ material.supplier }}{% endif %}
         </div>

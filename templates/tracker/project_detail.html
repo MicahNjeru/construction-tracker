@@ -52,7 +52,7 @@
         <div class="card stat-card success">
             <div class="card-body">
                 <h6 class="text-muted">Budget</h6>
-                <h4 class="mb-0">${{ project.budget|floatformat:2 }}</h4>
+                <h4 class="mb-0">Ksh{{ project.budget|floatformat:2 }}</h4>
             </div>
         </div>
     </div>
@@ -60,7 +60,7 @@
         <div class="card stat-card warning">
             <div class="card-body">
                 <h6 class="text-muted">Total Spent</h6>
-                <h4 class="mb-0">${{ project.total_spent|floatformat:2 }}</h4>
+                <h4 class="mb-0">Ksh{{ project.total_spent|floatformat:2 }}</h4>
             </div>
         </div>
     </div>
@@ -68,7 +68,7 @@
         <div class="card stat-card {% if project.remaining_budget < 0 %}danger{% else %}success{% endif %}">
             <div class="card-body">
                 <h6 class="text-muted">Remaining</h6>
-                <h4 class="mb-0">${{ project.remaining_budget|floatformat:2 }}</h4>
+                <h4 class="mb-0">Ksh{{ project.remaining_budget|floatformat:2 }}</h4>
             </div>
         </div>
     </div>
@@ -87,7 +87,7 @@
             </div>
         </div>
         <p class="text-muted mt-2 mb-0">
-            ${{ project.total_spent|floatformat:2 }} of ${{ project.budget|floatformat:2 }} 
+            Ksh{{ project.total_spent|floatformat:2 }} of Ksh{{ project.budget|floatformat:2 }} 
             ({{ project.material_count }} material entries)
         </p>
     </div>
@@ -161,7 +161,7 @@
                             {% endif %}
                         </td>
                         <td>{{ material.quantity }} {{ material.unit.abbreviation }}</td>
-                        <td><strong>${{ material.cost|floatformat:2 }}</strong></td>
+                        <td><strong>Ksh{{ material.cost|floatformat:2 }}</strong></td>
                         <td>{{ material.purchase_date|date:"M d, Y" }}</td>
                         <td>
                             {% if material.has_receipt %}
