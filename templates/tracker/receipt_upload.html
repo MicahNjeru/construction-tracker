@@ -13,11 +13,12 @@
     </nav>
 </div>
 
-<div class="row justify-content-center">
-    <div class="col-lg-6">
+<div class="row">
+    <!-- Upload Form -->
+    <div class="col-lg-6 mb-4">
         <div class="card">
             <div class="card-header">
-                <h4 class="mb-0">Upload Receipt</h4>
+                <h4 class="mb-0">Upload New Receipt</h4>
             </div>
             <div class="card-body">
                 <div class="alert alert-info mb-4">
@@ -42,9 +43,33 @@
                         {% endif %}
                     </div>
                     
+                    <div class="mb-3 form-check">
+                        {{ form.is_primary }}
+                        <label class="form-check-label" for="{{ form.is_primary.id_for_label }}">
+                            Set as primary receipt
+                        </label>
+                        <small class="form-text text-muted d-block">
+                            Primary receipt will be displayed first in the gallery
+                        </small>
+                        {% if form.is_primary.errors %}
+                        <div class="text-danger small">{{ form.is_primary.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.notes.id_for_label }}" class="form-label">Notes (Optional)</label>
+                        {{ form.notes }}
+                        <small class="form-text text-muted">
+                            Add notes about this receipt
+                        </small>
+                        {% if form.notes.errors %}
+                        <div class="text-danger small">{{ form.notes.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
                     <div class="alert alert-warning">
                         <i class="bi bi-exclamation-triangle"></i> 
-                        <strong>Note:</strong> The receipt image/PDF will be stored securely and can be downloaded later.
+                        <strong>Note:</strong> You can upload multiple receipts for this material entry. The receipt will be stored securely and can be downloaded later.
                     </div>
                     
                     <div class="d-flex justify-content-between mt-4">
@@ -56,6 +81,63 @@
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Existing Receipts -->
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Existing Receipts ({{ existing_receipts.count }})</h5>
+            </div>
+            <div class="card-body">
+                {% if existing_receipts %}
+                <div class="list-group">
+                    {% for receipt in existing_receipts %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">
+                                    {% if receipt.is_primary %}
+                                    <i class="bi bi-star-fill text-warning"></i>
+                                    {% endif %}
+                                    {{ receipt.original_filename|truncatechars:30 }}
+                                </h6>
+                                <small class="text-muted">
+                                    {{ receipt.file_size_mb }} MB • {{ receipt.uploaded_at|date:"M d, Y" }}
+                                </small>
+                                {% if receipt.notes %}
+                                <p class="mb-0 mt-1 small text-muted">
+                                    <i class="bi bi-chat-left-text"></i> {{ receipt.notes|truncatewords:10 }}
+                                </p>
+                                {% endif %}
+                            </div>
+                            <div class="btn-group-vertical btn-group-sm">
+                                <a href="{% url 'receipt_view' receipt.pk %}" 
+                                   class="btn btn-outline-primary btn-sm" 
+                                   target="_blank">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="{% url 'receipt_download' receipt.pk %}" 
+                                   class="btn btn-outline-success btn-sm">
+                                    <i class="bi bi-download"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="mt-3">
+                    <a href="{% url 'receipt_gallery' material.pk %}" class="btn btn-outline-primary w-100">
+                        <i class="bi bi-images"></i> View All in Gallery
+                    </a>
+                </div>
+                {% else %}
+                <p class="text-muted text-center my-4">
+                    No receipts uploaded yet. Upload your first receipt using the form.
+                </p>
+                {% endif %}
             </div>
         </div>
     </div>

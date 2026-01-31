@@ -2,6 +2,16 @@
 
 {% block title %}Dashboard - Construction Tracker{% endblock %}
 
+{% block extra_css %}
+<style>
+    .chart-container {
+        position: relative;
+        height: 300px;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1><i class="bi bi-speedometer2"></i> Dashboard</h1>
@@ -63,6 +73,37 @@
                          aria-valuemax="100">
                         {{ percentage }}%
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row mb-4">
+    <!-- Material Type Breakdown Chart -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Top Material Types by Cost</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="materialTypeChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Monthly Spending Chart -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Monthly Spending (Last 6 Months)</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="monthlySpendingChart"></canvas>
                 </div>
             </div>
         </div>
@@ -142,4 +183,106 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+// Material Type Chart
+const materialTypeCtx = document.getElementById('materialTypeChart');
+if (materialTypeCtx) {
+    const materialTypeData = {
+        labels: [
+            {% for item in material_type_stats %}
+            '{{ item.material_type|title }}'{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ],
+        datasets: [{
+            label: 'Cost ($)',
+            data: [
+                {% for item in material_type_stats %}
+                {{ item.total_cost }}{% if not forloop.last %},{% endif %}
+                {% endfor %}
+            ],
+            backgroundColor: [
+                'rgba(54, 162, 235, 0.7)',
+                'rgba(255, 99, 132, 0.7)',
+                'rgba(255, 206, 86, 0.7)',
+                'rgba(75, 192, 192, 0.7)',
+                'rgba(153, 102, 255, 0.7)',
+            ],
+            borderColor: [
+                'rgba(54, 162, 235, 1)',
+                'rgba(255, 99, 132, 1)',
+                'rgba(255, 206, 86, 1)',
+                'rgba(75, 192, 192, 1)',
+                'rgba(153, 102, 255, 1)',
+            ],
+            borderWidth: 1
+        }]
+    };
+
+    new Chart(materialTypeCtx, {
+        type: 'doughnut',
+        data: materialTypeData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                }
+            }
+        }
+    });
+}
+
+// Monthly Spending Chart
+const monthlySpendingCtx = document.getElementById('monthlySpendingChart');
+if (monthlySpendingCtx) {
+    const monthlySpendingData = {
+        labels: [
+            {% for item in monthly_spending %}
+            '{{ item.month|date:"Y-m" }}'{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ],
+        datasets: [{
+            label: 'Spending ($)',
+            data: [
+                {% for item in monthly_spending %}
+                {{ item.total }}{% if not forloop.last %},{% endif %}
+                {% endfor %}
+            ],
+            backgroundColor: 'rgba(52, 152, 219, 0.2)',
+            borderColor: 'rgba(52, 152, 219, 1)',
+            borderWidth: 2,
+            tension: 0.4
+        }]
+    };
+
+    new Chart(monthlySpendingCtx, {
+        type: 'line',
+        data: monthlySpendingData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '$' + value.toLocaleString();
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+</script>
 {% endblock %}

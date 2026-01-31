@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+
+{% block title %}Receipts - {{ material.description }}{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'project_list' %}">Projects</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'project_detail' project.pk %}">{{ project.name }}</a></li>
+            <li class="breadcrumb-item active">Receipt Gallery</li>
+        </ol>
+    </nav>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <div>
+            <h4 class="mb-0">Receipt Gallery</h4>
+            <small class="text-muted">{{ material.get_material_type_display }} - {{ material.description }}</small>
+        </div>
+        <a href="{% url 'receipt_upload' material.pk %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Add Receipt
+        </a>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> 
+            <strong>Material Details:</strong> {{ material.quantity }} {{ material.unit.abbreviation }} @ ${{ material.cost|floatformat:2 }} 
+            purchased on {{ material.purchase_date|date:"F d, Y" }}
+            {% if material.supplier %} from {{ material.supplier }}{% endif %}
+        </div>
+
+        {% if receipts %}
+        <div class="row">
+            {% for receipt in receipts %}
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="card h-100 {% if receipt.is_primary %}border-primary{% endif %}">
+                    {% if receipt.is_primary %}
+                    <div class="card-header bg-primary text-white">
+                        <i class="bi bi-star-fill"></i> Primary Receipt
+                    </div>
+                    {% endif %}
+                    
+                    <div class="card-body text-center">
+                        {% if receipt.is_image %}
+                        <!-- Image Preview -->
+                        <a href="{% url 'receipt_view' receipt.pk %}" target="_blank">
+                            <img src="{% url 'receipt_view' receipt.pk %}" 
+                                 alt="{{ receipt.original_filename }}" 
+                                 class="img-fluid receipt-preview mb-3"
+                                 style="max-height: 200px; cursor: pointer;">
+                        </a>
+                        {% elif receipt.is_pdf %}
+                        <!-- PDF Icon -->
+                        <a href="{% url 'receipt_view' receipt.pk %}" target="_blank">
+                            <i class="bi bi-file-pdf" style="font-size: 5rem; color: #dc3545;"></i>
+                        </a>
+                        {% else %}
+                        <!-- Generic File Icon -->
+                        <a href="{% url 'receipt_view' receipt.pk %}" target="_blank">
+                            <i class="bi bi-file-earmark" style="font-size: 5rem; color: #6c757d;"></i>
+                        </a>
+                        {% endif %}
+                        
+                        <h6 class="mt-2">{{ receipt.original_filename|truncatechars:30 }}</h6>
+                        <p class="text-muted small mb-2">
+                            Size: {{ receipt.file_size_mb }} MB<br>
+                            Uploaded: {{ receipt.uploaded_at|date:"M d, Y" }}
+                        </p>
+                        
+                        {% if receipt.notes %}
+                        <div class="alert alert-light small text-start mb-2">
+                            <strong>Notes:</strong> {{ receipt.notes }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="card-footer bg-white">
+                        <div class="d-flex justify-content-between flex-wrap gap-2">
+                            <div class="btn-group" role="group">
+                                <a href="{% url 'receipt_view' receipt.pk %}" 
+                                   class="btn btn-sm btn-outline-primary" 
+                                   target="_blank"
+                                   title="View">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="{% url 'receipt_download' receipt.pk %}" 
+                                   class="btn btn-sm btn-outline-success" 
+                                   title="Download">
+                                    <i class="bi bi-download"></i>
+                                </a>
+                            </div>
+                            
+                            <div class="btn-group" role="group">
+                                {% if not receipt.is_primary %}
+                                <a href="{% url 'receipt_set_primary' receipt.pk %}" 
+                                   class="btn btn-sm btn-outline-warning"
+                                   title="Set as Primary">
+                                    <i class="bi bi-star"></i>
+                                </a>
+                                {% endif %}
+                                <a href="{% url 'receipt_delete' receipt.pk %}" 
+                                   class="btn btn-sm btn-outline-danger"
+                                   title="Delete">
+                                    <i class="bi bi-trash"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center my-5">
+            <i class="bi bi-images" style="font-size: 4rem; color: #ccc;"></i>
+            <h5 class="mt-3">No Receipts Yet</h5>
+            <p class="text-muted">Upload receipts for this material entry.</p>
+            <a href="{% url 'receipt_upload' material.pk %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Upload First Receipt
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Back Button -->
+<div class="mt-4">
+    <a href="{% url 'project_detail' project.pk %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Project
+    </a>
+</div>
+{% endblock %}

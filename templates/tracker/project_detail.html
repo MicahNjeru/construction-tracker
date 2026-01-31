@@ -15,6 +15,19 @@
         <a href="{% url 'project_update' project.pk %}" class="btn btn-outline-secondary">
             <i class="bi bi-pencil"></i> Edit
         </a>
+        <div class="btn-group">
+            <button type="button" class="btn btn-success dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="bi bi-download"></i> Export
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="{% url 'export_project_excel' project.pk %}">
+                    <i class="bi bi-file-earmark-excel"></i> Export to Excel
+                </a></li>
+                <li><a class="dropdown-item" href="{% url 'export_project_pdf' project.pk %}">
+                    <i class="bi bi-file-earmark-pdf"></i> Export to PDF
+                </a></li>
+            </ul>
+        </div>
         <a href="{% url 'material_create' project.pk %}" class="btn btn-primary">
             <i class="bi bi-plus-circle"></i> Add Material
         </a>
@@ -80,6 +93,36 @@
     </div>
 </div>
 
+<!-- Search and Filter -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <input type="text" name="search" class="form-control" placeholder="Search materials..." value="{{ search_query }}">
+            </div>
+            <div class="col-md-3">
+                <select name="type" class="form-select">
+                    <option value="">All Types</option>
+                    {% for value, label in material_types %}
+                    <option value="{{ value }}" {% if type_filter == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <input type="date" name="date_from" class="form-control" placeholder="From" value="{{ date_from }}">
+            </div>
+            <div class="col-md-2">
+                <input type="date" name="date_to" class="form-control" placeholder="To" value="{{ date_to }}">
+            </div>
+            <div class="col-md-1">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Materials List -->
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
@@ -99,7 +142,7 @@
                         <th>Quantity</th>
                         <th>Cost</th>
                         <th>Date</th>
-                        <th>Receipt</th>
+                        <th>Receipts</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -122,21 +165,15 @@
                         <td>{{ material.purchase_date|date:"M d, Y" }}</td>
                         <td>
                             {% if material.has_receipt %}
-                                <a href="{% url 'receipt_view' material.receipt.pk %}" 
+                                <a href="{% url 'receipt_gallery' material.pk %}" 
                                    class="btn btn-sm btn-success" 
-                                   target="_blank"
-                                   title="View Receipt">
-                                    <i class="bi bi-file-earmark-check"></i>
+                                   title="View Receipts ({{ material.receipt_count }})">
+                                    <i class="bi bi-images"></i> {{ material.receipt_count }}
                                 </a>
-                                <a href="{% url 'receipt_download' material.receipt.pk %}" 
+                                <a href="{% url 'receipt_upload' material.pk %}" 
                                    class="btn btn-sm btn-outline-success" 
-                                   title="Download">
-                                    <i class="bi bi-download"></i>
-                                </a>
-                                <a href="{% url 'receipt_delete' material.receipt.pk %}" 
-                                   class="btn btn-sm btn-outline-danger" 
-                                   title="Delete Receipt">
-                                    <i class="bi bi-trash"></i>
+                                   title="Add Receipt">
+                                    <i class="bi bi-plus"></i>
                                 </a>
                             {% else %}
                                 <a href="{% url 'receipt_upload' material.pk %}" 
@@ -168,11 +205,18 @@
         {% else %}
         <div class="text-center my-4">
             <i class="bi bi-box" style="font-size: 3rem; color: #ccc;"></i>
-            <h5 class="mt-3">No Materials Yet</h5>
+            <h5 class="mt-3">No Materials Found</h5>
+            {% if search_query or type_filter or date_from or date_to %}
+            <p class="text-muted">Try adjusting your search filters.</p>
+            <a href="{% url 'project_detail' project.pk %}" class="btn btn-outline-secondary">
+                Clear Filters
+            </a>
+            {% else %}
             <p class="text-muted">Start adding materials for this project.</p>
             <a href="{% url 'material_create' project.pk %}" class="btn btn-primary">
                 <i class="bi bi-plus-circle"></i> Add First Material
             </a>
+            {% endif %}
         </div>
         {% endif %}
     </div>

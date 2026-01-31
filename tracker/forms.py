@@ -97,6 +97,121 @@ class MaterialEntryForm(forms.ModelForm):
 
 
 class ReceiptUploadForm(forms.ModelForm):
+    """Form for uploading receipts - Phase 2: With notes and primary flag."""
+    
+    class Meta:
+        model = Receipt
+        fields = ['file', 'is_primary', 'notes']
+        widgets = {
+            'file': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': 'image/*,.pdf'
+            }),
+            'is_primary': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'notes': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 2,
+                'placeholder': 'Notes about this receipt (optional)'
+            }),
+        }
+    
+    def clean_file(self):
+        file = self.cleaned_data.get('file')
+        
+        if file:
+            # Check file size (max 10MB)
+            if file.size > 10 * 1024 * 1024:
+                raise ValidationError('File size cannot exceed 10MB.')
+            
+            # Check file extension
+            valid_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf']
+            ext = file.name.lower().split('.')[-1]
+            if f'.{ext}' not in valid_extensions:
+                raise ValidationError(
+                    'Invalid file type. Allowed types: JPG, JPEG, PNG, GIF, WEBP, PDF'
+                )
+        
+        return file
+    
+    def save(self, commit=True):
+        receipt = super().save(commit=False)
+        if self.cleaned_data.get('file'):
+            receipt.original_filename = self.cleaned_data['file'].name
+            receipt.file_size = self.cleaned_data['file'].size
+        if commit:
+            receipt.save()
+        return receipt
+
+
+class MaterialSearchForm(forms.Form):
+    """Form for searching and filtering materials."""
+    
+    search = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Search materials...'
+        })
+    )
+    
+    material_type = forms.ChoiceField(
+        required=False,
+        choices=[('', 'All Types')] + MaterialEntry.MATERIAL_TYPES,
+        widget=forms.Select(attrs={
+            'class': 'form-select'
+        })
+    )
+    
+    date_from = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={
+            'class': 'form-control',
+            'type': 'date'
+        })
+    )
+    
+    date_to = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={
+            'class': 'form-control',
+            'type': 'date'
+        })
+    )
+    """Form for searching and filtering materials."""
+    
+    search = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Search materials...'
+        })
+    )
+    
+    material_type = forms.ChoiceField(
+        required=False,
+        choices=[('', 'All Types')] + MaterialEntry.MATERIAL_TYPES,
+        widget=forms.Select(attrs={
+            'class': 'form-select'
+        })
+    )
+    
+    date_from = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={
+            'class': 'form-control',
+            'type': 'date'
+        })
+    )
+    
+    date_to = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={
+            'class': 'form-control',
+            'type': 'date'
+        })
+    )
     """Form for uploading receipts."""
     
     class Meta:
