@@ -34,6 +34,55 @@ class UserProfile(models.Model):
         return f"{self.user.username} - {self.get_role_display()}"
 
 
+class MaterialUnit(models.Model):
+    """Units of measurement for materials."""
+    
+    name = models.CharField(max_length=50, unique=True)
+    abbreviation = models.CharField(max_length=10)
+    
+    class Meta:
+        ordering = ['name']
+    
+    def __str__(self):
+        return f"{self.name} ({self.abbreviation})"
+
+
+class MaterialCategory(models.Model):
+    """Database-driven material categories"""
+
+    key = models.SlugField(
+        max_length=50,
+        unique=True,
+        help_text="Machine-readable key, e.g. 'wood', 'cement'"
+    )
+    name = models.CharField(
+        max_length=100,
+        help_text="Human-readable name, e.g. 'Wood'"
+    )
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+class MaterialCatalog(models.Model):
+    """Master list of materials available for templates and entries."""
+
+    category = models.ForeignKey(MaterialCategory, on_delete=models.PROTECT, related_name='materials')
+    description = models.CharField(max_length=300)
+    default_unit = models.ForeignKey(MaterialUnit, on_delete=models.PROTECT, null=True, blank=True)
+    default_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    class Meta:
+        unique_together = ('category', 'description')
+        ordering = ['category__name', 'description']
+
+    def __str__(self):
+        return f"{self.category.name} - {self.description}"
+
+
 class ProjectTemplate(models.Model):
     """Template for creating new projects with predefined materials."""
     
@@ -55,15 +104,15 @@ class TemplateMaterial(models.Model):
     """Pre-defined material for a project template."""
     
     template = models.ForeignKey(ProjectTemplate, on_delete=models.CASCADE, related_name='materials')
-    material_type = models.CharField(max_length=50)
+    category = models.ForeignKey(MaterialCategory, on_delete=models.PROTECT, related_name='template_materials')
     description = models.CharField(max_length=300)
     estimated_quantity = models.DecimalField(max_digits=10, decimal_places=2)
-    unit_name = models.CharField(max_length=50)
+    unit = models.ForeignKey(MaterialUnit, on_delete=models.PROTECT, related_name='template_materials')
     estimated_cost = models.DecimalField(max_digits=10, decimal_places=2)
     notes = models.TextField(blank=True)
     
     def __str__(self):
-        return f"{self.material_type} - {self.description}"
+        return f"{self.category.name} - {self.description}"
 
 
 class Project(models.Model):
@@ -157,44 +206,15 @@ class Project(models.Model):
         )
 
 
-class MaterialUnit(models.Model):
-    """Units of measurement for materials."""
-    
-    name = models.CharField(max_length=50, unique=True)
-    abbreviation = models.CharField(max_length=10)
-    
-    class Meta:
-        ordering = ['name']
-    
-    def __str__(self):
-        return f"{self.name} ({self.abbreviation})"
-
-
 class MaterialEntry(models.Model):
     """Material purchase/acquisition entry for a project"""
     
-    MATERIAL_TYPES = [
-        ('wood', 'Wood'),
-        ('metal', 'Metal'),
-        ('stones', 'Stones'),
-        ('cement', 'Cement'),
-        ('sand', 'Sand'),
-        ('gravel', 'Gravel'),
-        ('bricks', 'Bricks'),
-        ('tiles', 'Tiles'),
-        ('paint', 'Paint'),
-        ('electrical', 'Electrical'),
-        ('plumbing', 'Plumbing'),
-        ('glass', 'Glass'),
-        ('roofing', 'Roofing'),
-        ('insulation', 'Insulation'),
-        ('hardware', 'Hardware'),
-        ('tools', 'Tools'),
-        ('other', 'Other'),
-    ]
-    
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='material_entries')
-    material_type = models.CharField(max_length=50, choices=MATERIAL_TYPES)
+    category = models.ForeignKey(
+        MaterialCategory,
+        on_delete=models.PROTECT,
+        related_name='material_entries'
+    )
     description = models.CharField(max_length=300, help_text="Brief description of the material")
     quantity = models.DecimalField(
         max_digits=10, 
@@ -228,7 +248,7 @@ class MaterialEntry(models.Model):
         verbose_name_plural = 'Material entries'
     
     def __str__(self):
-        return f"{self.get_material_type_display()} - {self.description[:50]}"
+        return f"{self.category.name} - {self.description[:50]}"
     
     @property
     def unit_cost(self):

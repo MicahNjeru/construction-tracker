@@ -1,0 +1,24 @@
+# ====================================================================================
+# File: material_categories.txt
+# ====================================================================================
+# Format:
+# key | name
+# Lines starting with # are comments
+
+wood | Wood
+metal | Metal
+stones | Stones
+cement | Cement
+sand | Sand
+gravel | Gravel
+bricks | Bricks
+tiles | Tiles
+paint | Paint
+electrical | Electrical
+plumbing | Plumbing
+glass | Glass
+roofing | Roofing
+insulation | Insulation
+hardware | Hardware
+tools | Tools
+other | Other

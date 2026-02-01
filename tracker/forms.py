@@ -1,6 +1,6 @@
 from django import forms
 from django.db.models import Q
-from .models import Project, MaterialEntry, Receipt, ProjectTemplate, TemplateMaterial, ProjectPhoto, UserProfile
+from .models import *
 from django.core.exceptions import ValidationError
 
 
@@ -58,10 +58,10 @@ class MaterialEntryForm(forms.ModelForm):
     
     class Meta:
         model = MaterialEntry
-        fields = ['material_type', 'description', 'quantity', 'quantity_used', 'unit', 'cost', 
+        fields = ['category', 'description', 'quantity', 'quantity_used', 'unit', 'cost', 
                   'purchase_date', 'supplier', 'notes']
         widgets = {
-            'material_type': forms.Select(attrs={
+            'category': forms.Select(attrs={
                 'class': 'form-select'
             }),
             'description': forms.TextInput(attrs={
@@ -210,10 +210,12 @@ class TemplateMaterialForm(forms.ModelForm):
     
     class Meta:
         model = TemplateMaterial
-        fields = ['material_type', 'description', 'estimated_quantity', 'unit_name', 
+        fields = ['category', 'description', 'estimated_quantity', 'unit', 
                   'estimated_cost', 'notes']
         widgets = {
-            'material_type': forms.Select(attrs={'class': 'form-select'}),
+            'category': forms.Select(attrs={
+                'class': 'form-select'
+            }),
             'description': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Material description'
@@ -222,9 +224,8 @@ class TemplateMaterialForm(forms.ModelForm):
                 'class': 'form-control',
                 'step': '0.01'
             }),
-            'unit_name': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'e.g., bags, kg, pieces'
+            'unit': forms.Select(attrs={
+                'class': 'form-select'
             }),
             'estimated_cost': forms.NumberInput(attrs={
                 'class': 'form-control',
@@ -360,7 +361,7 @@ class UserProfileForm(forms.ModelForm):
 
 class MaterialSearchForm(forms.Form):
     """Form for searching and filtering materials."""
-    
+
     search = forms.CharField(
         required=False,
         widget=forms.TextInput(attrs={
@@ -368,15 +369,16 @@ class MaterialSearchForm(forms.Form):
             'placeholder': 'Search materials...'
         })
     )
-    
-    material_type = forms.ChoiceField(
+
+    category = forms.ModelChoiceField(
         required=False,
-        choices=[('', 'All Types')] + MaterialEntry.MATERIAL_TYPES,
+        queryset=MaterialCategory.objects.all(),
+        empty_label='All Categories',
         widget=forms.Select(attrs={
             'class': 'form-select'
         })
     )
-    
+
     date_from = forms.DateField(
         required=False,
         widget=forms.DateInput(attrs={
@@ -384,7 +386,7 @@ class MaterialSearchForm(forms.Form):
             'type': 'date'
         })
     )
-    
+
     date_to = forms.DateField(
         required=False,
         widget=forms.DateInput(attrs={
@@ -392,7 +394,7 @@ class MaterialSearchForm(forms.Form):
             'type': 'date'
         })
     )
-    
+
     usage_status = forms.ChoiceField(
         required=False,
         choices=[

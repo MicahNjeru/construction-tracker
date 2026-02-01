@@ -23,7 +23,7 @@
                 <!-- Material Info -->
                 <div class="alert alert-info mb-4">
                     <h6><i class="bi bi-box"></i> Material Details</h6>
-                    <p class="mb-1"><strong>Type:</strong> {{ material.get_material_type_display }}</p>
+                    <p class="mb-1"><strong>Category:</strong> {{ material.category.name|default:"Uncategorized" }}</p>
                     <p class="mb-1"><strong>Description:</strong> {{ material.description }}</p>
                     <p class="mb-1"><strong>Total Quantity:</strong> {{ material.quantity }} {{ material.unit.abbreviation }}</p>
                     <p class="mb-0"><strong>Currently Used:</strong> {{ material.quantity_used }} {{ material.unit.abbreviation }}</p>

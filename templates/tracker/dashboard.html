@@ -164,7 +164,7 @@
                             <div>
                                 <h6 class="mb-1">{{ material.description|truncatewords:8 }}</h6>
                                 <small class="text-muted">
-                                    <span class="badge bg-info material-type-badge">{{ material.get_material_type_display }}</span>
+                                    <span class="badge bg-info material-type-badge">{{ material.category.name|default:"Uncategorized" }}</span>
                                     {{ material.project.name|truncatewords:5 }}
                                 </small>
                             </div>
@@ -194,7 +194,7 @@ if (materialTypeCtx) {
     const materialTypeData = {
         labels: [
             {% for item in material_type_stats %}
-            '{{ item.material_type|title }}'{% if not forloop.last %},{% endif %}
+            '{{ item.category__name|title }}'{% if not forloop.last %},{% endif %}
             {% endfor %}
         ],
         datasets: [{

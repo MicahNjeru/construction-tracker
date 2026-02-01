@@ -1,0 +1,32 @@
+# ====================================================================================
+# File: materials.txt
+# ====================================================================================
+# Format:
+# category_key  | description | unit | estimated_cost
+# Lines starting with # are comments
+
+# Wood
+wood | 2x4 timber | pieces | 5.50
+wood | plywood sheet | sheets | 18.00
+wood | hardwood planks | pieces | 12.75
+
+# Cement & aggregates
+cement | Portland cement | bags | 9.80
+sand | River sand | cubic meters | 32.00
+gravel | Crushed gravel | cubic meters | 40.00
+
+# Masonry
+bricks | Clay bricks | pieces | 0.35
+tiles | Ceramic floor tiles | boxes | 22.00
+
+# Finishing
+paint | Interior emulsion paint | liters | 6.50
+paint | Exterior weatherproof paint | liters | 8.90
+
+# Electrical
+electrical | Electrical wiring | rolls | 45.00
+electrical | Circuit breakers | pieces | 12.00
+
+# Plumbing
+plumbing | PVC pipes | pieces | 6.00
+plumbing | Water valves | pieces | 4.50

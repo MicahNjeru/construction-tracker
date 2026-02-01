@@ -55,7 +55,7 @@ def dashboard(request):
     # Material type breakdown (across all projects)
     material_type_stats = MaterialEntry.objects.filter(
         project__created_by=request.user
-    ).values('material_type').annotate(
+    ).values('category__name').annotate(
         total_cost=Sum('cost'),
         count=Count('id')
     ).order_by('-total_cost')[:5]
@@ -143,7 +143,7 @@ def project_detail(request, pk):
     # Filter by material type
     type_filter = request.GET.get('type', '')
     if type_filter:
-        materials = materials.filter(material_type=type_filter)
+        materials = materials.filter(category=type_filter)
     
     # Filter by date range
     date_from = request.GET.get('date_from', '')
@@ -154,7 +154,7 @@ def project_detail(request, pk):
         materials = materials.filter(purchase_date__lte=date_to)
     
     # Material breakdown by type
-    material_breakdown = project.material_entries.values('material_type').annotate(
+    material_breakdown = project.material_entries.values('category__name').annotate(
         total_cost=Sum('cost'),
         count=Count('id')
     ).order_by('-total_cost')
@@ -167,7 +167,7 @@ def project_detail(request, pk):
         'type_filter': type_filter,
         'date_from': date_from,
         'date_to': date_to,
-        'material_types': MaterialEntry.MATERIAL_TYPES,
+        'material_categories': MaterialCategory.objects.all(),
     }
     return render(request, 'tracker/project_detail.html', context)
 
@@ -240,7 +240,7 @@ def material_create(request, project_pk):
                 project=project,
                 user=request.user,
                 action='material_added',
-                description=f"Added {material.get_material_type_display()}: {material.description}",
+                description=f"Added {material.category.name}: {material.description}",
                 related_material=material
             )
             check_budget_alerts(project)
@@ -270,7 +270,7 @@ def material_update(request, pk):
                 project=project,
                 user=request.user,
                 action='material_updated',
-                description=f"Updated {material.get_material_type_display()}: {material.description}",
+                description=f"Updated {material.category.name}: {material.description}",
                 related_material=material
             )
             check_budget_alerts(project)
@@ -298,7 +298,7 @@ def material_delete(request, pk):
             project=project,
             user=request.user,
             action='material_deleted',
-            description=f"Deleted {material.get_material_type_display()}: {material.description}"
+            description=f"Deleted {material.category.name}: {material.description}"
         )
         material.delete()
         messages.success(request, 'Material entry deleted successfully!')
@@ -460,7 +460,7 @@ def export_project_excel(request, pk):
     # Data
     for row, material in enumerate(materials, 2):
         ws.cell(row=row, column=1, value=material.purchase_date.strftime('%Y-%m-%d'))
-        ws.cell(row=row, column=2, value=material.get_material_type_display())
+        ws.cell(row=row, column=2, value=material.category.name)
         ws.cell(row=row, column=3, value=material.description)
         ws.cell(row=row, column=4, value=float(material.quantity))
         ws.cell(row=row, column=5, value=material.unit.abbreviation)
@@ -564,7 +564,7 @@ def export_project_pdf(request, pk):
     for material in materials:
         material_data.append([
             material.purchase_date.strftime('%Y-%m-%d'),
-            material.get_material_type_display(),
+            material.category.name,
             material.description[:40],
             f"{material.quantity} {material.unit.abbreviation}",
             f'Ksh{material.cost:,.2f}'
@@ -853,18 +853,12 @@ def create_project_from_template(request):
             
             # Copy materials from template
             for template_material in template.materials.all():
-                # Find or create unit
-                unit, created = MaterialUnit.objects.get_or_create(
-                    name=template_material.unit_name,
-                    defaults={'abbreviation': template_material.unit_name[:3]}
-                )
-                
                 MaterialEntry.objects.create(
                     project=project,
-                    material_type=template_material.material_type,
+                    category=template_material.category,
                     description=template_material.description,
                     quantity=template_material.estimated_quantity,
-                    unit=unit,
+                    unit=template_material.unit,
                     cost=template_material.estimated_cost,
                     purchase_date=form.cleaned_data['start_date'],
                     notes=template_material.notes,
@@ -1018,21 +1012,21 @@ def check_budget_alerts(project):
             project=project,
             alert_type='exceeded',
             percentage=percentage,
-            message=f"Budget exceeded! Spent ${project.total_spent} of ${project.budget} ({percentage:.1f}%)"
+            message=f"Budget exceeded! Spent Ksh{project.total_spent} of Ksh{project.budget} ({percentage:.1f}%)"
         )
     elif percentage >= 90 and not project.budget_alerts.filter(alert_type='critical').exists():
         BudgetAlert.objects.create(
             project=project,
             alert_type='critical',
             percentage=percentage,
-            message=f"Critical: {percentage:.1f}% of budget used (${project.total_spent} of ${project.budget})"
+            message=f"Critical: {percentage:.1f}% of budget used (Ksh{project.total_spent} of Ksh{project.budget})"
         )
     elif percentage >= 75 and not project.budget_alerts.filter(alert_type='warning').exists():
         BudgetAlert.objects.create(
             project=project,
             alert_type='warning',
             percentage=percentage,
-            message=f"Warning: {percentage:.1f}% of budget used (${project.total_spent} of ${project.budget})"
+            message=f"Warning: {percentage:.1f}% of budget used (Ksh{project.total_spent} of Ksh{project.budget})"
         )
 
 

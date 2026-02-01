@@ -11,6 +11,26 @@ class UserProfileAdmin(admin.ModelAdmin):
     search_fields = ['user__username', 'user__email', 'company', 'phone']
 
 
+@admin.register(MaterialCategory)
+class MaterialCategoryAdmin(admin.ModelAdmin):
+    list_display = ['name', 'key']
+    search_fields = ['name', 'key']
+
+
+@admin.register(MaterialCatalog)
+class MaterialCatalogAdmin(admin.ModelAdmin):
+    list_display = ['description', 'category', 'default_unit', 'default_cost']
+    list_filter = ['category', 'default_unit']
+    search_fields = ['description', 'category__name']
+
+
+@admin.register(TemplateMaterial)
+class TemplateMaterialAdmin(admin.ModelAdmin):
+    list_display = ['template', 'category', 'description', 'estimated_quantity', 'unit', 'estimated_cost']
+    list_filter = ['category', 'unit']
+    search_fields = ['description', 'template__name']
+
+
 class TemplateMaterialInline(admin.TabularInline):
     model = TemplateMaterial
     extra = 1
@@ -58,16 +78,16 @@ class MaterialUnitAdmin(admin.ModelAdmin):
 
 @admin.register(MaterialEntry)
 class MaterialEntryAdmin(admin.ModelAdmin):
-    list_display = ['material_type', 'description', 'quantity', 'quantity_used', 'quantity_remaining', 
+    list_display = ['category', 'description', 'quantity', 'quantity_used', 'quantity_remaining', 
                     'unit', 'cost', 'project', 'purchase_date', 'has_receipt']
-    list_filter = ['material_type', 'has_receipt', 'purchase_date']
+    list_filter = ['category', 'has_receipt', 'purchase_date']
     search_fields = ['description', 'supplier', 'project__name']
     date_hierarchy = 'purchase_date'
     readonly_fields = ['created_at', 'updated_at']
     
     fieldsets = (
         ('Material Information', {
-            'fields': ('project', 'material_type', 'description')
+            'fields': ('project', 'category', 'description')
         }),
         ('Quantity and Usage', {
             'fields': ('quantity', 'quantity_used', 'unit')
