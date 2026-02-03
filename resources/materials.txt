@@ -1,7 +1,7 @@
 # ====================================================================================
 # File: materials.txt
 # ====================================================================================
-# Format:
+# Format (lower caps):
 # category_key  | description | unit | estimated_cost
 # Lines starting with # are comments
 
