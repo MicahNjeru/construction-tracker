@@ -3,7 +3,7 @@
 # ====================================================================================
 
 # Material Units File
-# Format: unit_name,abbreviation
+# Format (lower caps): unit_name,abbreviation
 # Lines starting with # are comments
 
 # Weight/Mass Units
