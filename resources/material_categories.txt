@@ -21,4 +21,6 @@ roofing | Roofing
 insulation | Insulation
 hardware | Hardware
 tools | Tools
+ballast | Ballast
+water | Water
 other | Other
