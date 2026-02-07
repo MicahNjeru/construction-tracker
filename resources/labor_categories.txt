@@ -1,0 +1,27 @@
+# ====================================================================================
+# File: labor_categories.txt
+# ====================================================================================
+# Format (lower caps):
+# key | name
+# Lines starting with # are comments
+
+mason | Mason
+carpenter | Carpenter
+electrician | Electrician
+plumber | Plumber
+painter | Painter
+welder | Welder
+steel_fixer | Steel Fixer
+concrete_worker | Concrete Worker
+foreman | Foreman
+site_engineer | Site Engineer
+general_labor | General Labor
+tiler | Tiler
+roofer | Roofer
+glazier | Glazier
+hvac | HVAC Technician
+survey_helper | Survey Helper
+machine_operator | Machine Operator
+security | Security
+cleaner | Cleaner
+other | Other

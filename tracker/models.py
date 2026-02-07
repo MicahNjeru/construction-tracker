@@ -42,6 +42,7 @@ class MaterialUnit(models.Model):
     
     class Meta:
         ordering = ['name']
+        verbose_name_plural = ['Material Units']
     
     def __str__(self):
         return f"{self.name} ({self.abbreviation})"
@@ -62,6 +63,7 @@ class MaterialCategory(models.Model):
 
     class Meta:
         ordering = ['name']
+        verbose_name_plural = 'Material Categories'
 
     def __str__(self):
         return self.name
@@ -76,6 +78,7 @@ class MaterialCatalog(models.Model):
     default_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     class Meta:
+        verbose_name_plural = 'Material Catalogs'
         unique_together = ('category', 'description')
         ordering = ['category__name', 'description']
 
@@ -95,6 +98,7 @@ class ProjectTemplate(models.Model):
     
     class Meta:
         ordering = ['-created_at']
+        verbose_name_plural = 'Project Templates'
     
     def __str__(self):
         return self.name
@@ -111,6 +115,10 @@ class TemplateMaterial(models.Model):
     estimated_cost = models.DecimalField(max_digits=10, decimal_places=2)
     notes = models.TextField(blank=True)
     
+    class Meta:
+        verbose_name_plural = 'Template Materials'
+    
+
     def __str__(self):
         return f"{self.category.name} - {self.description}"
 
@@ -152,17 +160,35 @@ class Project(models.Model):
     
     class Meta:
         ordering = ['-created_at']
+        verbose_name_plural = 'Projects'
         
     def __str__(self):
         return self.name
+
+
+    @property
+    def total_material_cost(self):
+        """Calculate total amount spent on materials."""
+        total = self.material_entries.aggregate(
+        total=models.Sum('cost')
+        )['total']
+        return total or Decimal('0.00')
+    
+
+    @property
+    def total_labor_cost(self):
+        """Calculate total amount spent on labor."""
+        from django.db.models import F, Sum
+        total = self.labor_entries.aggregate(
+        total=Sum(F('number_of_workers') * F('rate_per_worker_per_day'))
+        )['total']
+        return total or Decimal('0.00')
+    
     
     @property
     def total_spent(self):
-        """Calculate total amount spent on materials."""
-        total = self.material_entries.aggregate(
-            total=models.Sum('cost')
-        )['total']
-        return total or Decimal('0.00')
+        """Calculate total amount spent on materials and labor."""
+        return self.total_material_cost + self.total_labor_cost
     
     @property
     def remaining_budget(self):
@@ -245,7 +271,7 @@ class MaterialEntry(models.Model):
     
     class Meta:
         ordering = ['-purchase_date', '-created_at']
-        verbose_name_plural = 'Material entries'
+        verbose_name_plural = 'Material Entries'
     
     def __str__(self):
         return f"{self.category.name} - {self.description[:50]}"
@@ -297,6 +323,7 @@ class Receipt(models.Model):
     
     class Meta:
         ordering = ['-is_primary', '-uploaded_at']
+        verbose_name_plural = 'Receipts'
     
     def __str__(self):
         primary = " (Primary)" if self.is_primary else ""
@@ -364,6 +391,7 @@ class ProjectPhoto(models.Model):
     
     class Meta:
         ordering = ['-taken_date', '-uploaded_at']
+        verbose_name_plural = 'Project Photos'
     
     def __str__(self):
         return f"Photo for {self.project.name} - {self.uploaded_at.date()}"
@@ -407,6 +435,7 @@ class ActivityLog(models.Model):
     
     class Meta:
         ordering = ['-created_at']
+        verbose_name_plural = 'Activity Logs'
     
     def __str__(self):
         return f"{self.get_action_display()} - {self.project.name}"
@@ -431,6 +460,7 @@ class BudgetAlert(models.Model):
     
     class Meta:
         ordering = ['-created_at']
+        verbose_name_plural = 'Budget Alerts'
     
     def __str__(self):
         return f"{self.get_alert_type_display()} - {self.project.name}"

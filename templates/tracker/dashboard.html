@@ -74,6 +74,18 @@
                         {{ percentage }}%
                     </div>
                 </div>
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <small class="text-muted">
+                            <i class="bi bi-box"></i> Materials: Ksh{{ total_material_cost|floatformat:2 }}
+                        </small>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted">
+                            <i class="bi bi-people"></i> Labor: Ksh{{ total_labor_cost|floatformat:2 }}
+                        </small>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -95,11 +107,41 @@
         </div>
     </div>
     
+    <!-- Labor Category Breakdown Chart -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Top Labor Categories by Cost</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="laborCategoryChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cost Distribution Chart -->
+<div class="row mb-4">
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Materials vs Labor Cost Distribution</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="costDistributionChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <!-- Monthly Spending Chart -->
     <div class="col-md-6 mb-4">
         <div class="card">
             <div class="card-header">
-                <h5 class="mb-0">Monthly Spending (Last 6 Months)</h5>
+                <h5 class="mb-0">Monthly Spending</h5>
             </div>
             <div class="card-body">
                 <div class="chart-container">
@@ -110,7 +152,7 @@
     </div>
 </div>
 
-<!-- Recent Projects and Materials -->
+<!-- Recent Projects and Activities -->
 <div class="row">
     <!-- Recent Projects -->
     <div class="col-md-6 mb-4">
@@ -149,20 +191,24 @@
         </div>
     </div>
 
-    <!-- Recent Materials -->
+    <!-- Recent Activities (Materials & Labor) -->
     <div class="col-md-6 mb-4">
         <div class="card">
             <div class="card-header">
-                <h5 class="mb-0">Recent Material Entries</h5>
+                <h5 class="mb-0">Recent Activities</h5>
             </div>
             <div class="card-body">
-                {% if recent_materials %}
+                {% if recent_materials or recent_labor %}
                 <div class="list-group list-group-flush">
+                    <!-- Combine and sort materials and labor by date -->
                     {% for material in recent_materials %}
                     <div class="list-group-item">
                         <div class="d-flex justify-content-between align-items-start">
                             <div>
-                                <h6 class="mb-1">{{ material.description|truncatewords:8 }}</h6>
+                                <h6 class="mb-1">
+                                    <i class="bi bi-box text-primary"></i>
+                                    {{ material.description|truncatewords:8 }}
+                                </h6>
                                 <small class="text-muted">
                                     <span class="badge bg-info material-type-badge">{{ material.category.name|default:"Uncategorized" }}</span>
                                     {{ material.project.name|truncatewords:5 }}
@@ -175,9 +221,30 @@
                         </div>
                     </div>
                     {% endfor %}
+                    
+                    {% for labor in recent_labor %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">
+                                    <i class="bi bi-people text-success"></i>
+                                    {{ labor.category.name }} ({{ labor.number_of_workers }} workers)
+                                </h6>
+                                <small class="text-muted">
+                                    <span class="badge bg-success">Labor</span>
+                                    {{ labor.project.name|truncatewords:5 }}
+                                </small>
+                            </div>
+                            <div class="text-end">
+                                <strong>Ksh{{ labor.total_cost|floatformat:2 }}</strong>
+                                <small class="text-muted d-block">{{ labor.work_date|date:"M d, Y" }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
                 </div>
                 {% else %}
-                <p class="text-muted text-center my-4">No material entries yet.</p>
+                <p class="text-muted text-center my-4">No material or labor entries yet.</p>
                 {% endif %}
             </div>
         </div>
@@ -186,103 +253,194 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-// Material Type Chart
-const materialTypeCtx = document.getElementById('materialTypeChart');
-if (materialTypeCtx) {
-    const materialTypeData = {
-        labels: [
-            {% for item in material_type_stats %}
-            '{{ item.category__name|title }}'{% if not forloop.last %},{% endif %}
-            {% endfor %}
-        ],
-        datasets: [{
-            label: 'Cost (Ksh)',
-            data: [
-                {% for item in material_type_stats %}
-                {{ item.total_cost }}{% if not forloop.last %},{% endif %}
-                {% endfor %}
-            ],
-            backgroundColor: [
-                'rgba(54, 162, 235, 0.7)',
-                'rgba(255, 99, 132, 0.7)',
-                'rgba(255, 206, 86, 0.7)',
-                'rgba(75, 192, 192, 0.7)',
-                'rgba(153, 102, 255, 0.7)',
-            ],
-            borderColor: [
-                'rgba(54, 162, 235, 1)',
-                'rgba(255, 99, 132, 1)',
-                'rgba(255, 206, 86, 1)',
-                'rgba(75, 192, 192, 1)',
-                'rgba(153, 102, 255, 1)',
-            ],
-            borderWidth: 1
-        }]
-    };
-
-    new Chart(materialTypeCtx, {
-        type: 'doughnut',
-        data: materialTypeData,
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                }
-            }
-        }
-    });
-}
-
-// Monthly Spending Chart
-const monthlySpendingCtx = document.getElementById('monthlySpendingChart');
-if (monthlySpendingCtx) {
-    const monthlySpendingData = {
-        labels: [
-            {% for item in monthly_spending %}
-            '{{ item.month|date:"Y-m" }}'{% if not forloop.last %},{% endif %}
-            {% endfor %}
-        ],
-        datasets: [{
-            label: 'Spending (Ksh)',
-            data: [
-                {% for item in monthly_spending %}
-                {{ item.total }}{% if not forloop.last %},{% endif %}
-                {% endfor %}
-            ],
-            backgroundColor: 'rgba(52, 152, 219, 0.2)',
-            borderColor: 'rgba(52, 152, 219, 1)',
-            borderWidth: 2,
-            tension: 0.4
-        }]
-    };
-
-    new Chart(monthlySpendingCtx, {
-        type: 'line',
-        data: monthlySpendingData,
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false
-                }
+    document.addEventListener('DOMContentLoaded', function() {
+        // Material Type Chart
+        {% if material_type_stats %}
+        const materialTypeCtx = document.getElementById('materialTypeChart').getContext('2d');
+        new Chart(materialTypeCtx, {
+            type: 'bar',
+            data: {
+                labels: [
+                    {% for item in material_type_stats %}
+                    '{{ item.category__name }}',
+                    {% endfor %}
+                ],
+                datasets: [{
+                    label: 'Cost (Ksh)',
+                    data: [
+                        {% for item in material_type_stats %}
+                        {{ item.total_cost }},
+                        {% endfor %}
+                    ],
+                    backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 2
+                }]
             },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        callback: function(value) {
-                            return 'Ksh' + value.toLocaleString();
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'Ksh' + value.toLocaleString();
+                            }
                         }
                     }
                 }
             }
-        }
+        });
+        {% endif %}
+        
+        // Labor Category Chart
+        {% if labor_breakdown %}
+        const laborCategoryCtx = document.getElementById('laborCategoryChart').getContext('2d');
+        new Chart(laborCategoryCtx, {
+            type: 'bar',
+            data: {
+                labels: [
+                    {% for item in labor_breakdown %}
+                    '{{ item.category__name }}',
+                    {% endfor %}
+                ],
+                datasets: [{
+                    label: 'Cost (Ksh)',
+                    data: [
+                        {% for item in labor_breakdown %}
+                        {{ item.total_cost }},
+                        {% endfor %}
+                    ],
+                    backgroundColor: 'rgba(75, 192, 192, 0.7)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'Ksh' + value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        {% endif %}
+        
+        // Cost Distribution Pie Chart
+        const costDistCtx = document.getElementById('costDistributionChart').getContext('2d');
+        new Chart(costDistCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Materials', 'Labor'],
+                datasets: [{
+                    data: [{{ total_material_cost|default:0 }}, {{ total_labor_cost|default:0 }}],
+                    backgroundColor: [
+                        'rgba(54, 162, 235, 0.7)',
+                        'rgba(75, 192, 192, 0.7)'
+                    ],
+                    borderColor: [
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(75, 192, 192, 1)'
+                    ],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.label + ': Ksh' + context.parsed.toFixed(2);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Monthly Spending Chart
+        {% if monthly_spending %}
+        const monthlySpendingCtx = document.getElementById('monthlySpendingChart').getContext('2d');
+        new Chart(monthlySpendingCtx, {
+            type: 'line',
+            data: {
+                labels: [
+                    {% for month in monthly_spending %}
+                    '{{ month.month|date:"M Y" }}',
+                    {% endfor %}
+                ],
+                datasets: [
+                    {
+                        label: 'Materials',
+                        data: [
+                            {% for month in monthly_spending %}
+                            {{ month.material_cost|default:0 }},
+                            {% endfor %}
+                        ],
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Labor',
+                        data: [
+                            {% for month in monthly_spending %}
+                            {{ month.labor_cost|default:0 }},
+                            {% endfor %}
+                        ],
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        tension: 0.4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        stacked: false,
+                        ticks: {
+                            callback: function(value) {
+                                return 'Ksh' + value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        {% endif %}
     });
-}
 </script>
 {% endblock %}

@@ -1,12 +1,14 @@
+from collections import defaultdict
 from datetime import datetime, timedelta
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.db.models import Sum, Count, Q
+from django.db.models import Sum, Count, Q, F
 from django.db.models.functions import TruncMonth
 from django.http import HttpResponse, FileResponse, Http404, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from .models import *
 from .forms import *
+from labor.models import LaborEntry
 import os
 
 # Create your views here.
@@ -47,31 +49,84 @@ def dashboard(request):
     total_budget = projects.aggregate(Sum('budget'))['budget__sum'] or 0
     total_spent = sum(p.total_spent for p in projects)
     
-    # Recent materials
+    # Calculate total material cost
+    total_material_cost = MaterialEntry.objects.filter(
+        project__created_by=request.user
+    ).aggregate(total=Sum('cost'))['total'] or Decimal('0.00')
+
+    # Calculate total labor cost
+    total_labor_cost = LaborEntry.objects.filter(
+        project__created_by=request.user
+    ).aggregate(
+        total=Sum(F('number_of_workers') * F('rate_per_worker_per_day'))
+    )['total'] or Decimal('0.00')
+
+    # Recent materials entries
     recent_materials = MaterialEntry.objects.filter(
         project__created_by=request.user
     ).order_by('-created_at')[:5]
+
+    # Recent labor entries
+    recent_labor = LaborEntry.objects.filter(
+        project__created_by=request.user
+    ).select_related('project', 'category').order_by('-work_date', '-created_at')[:10]
     
-    # Material type breakdown (across all projects)
+    # Material type breakdown by category
     material_type_stats = MaterialEntry.objects.filter(
         project__created_by=request.user
     ).values('category__name').annotate(
         total_cost=Sum('cost'),
         count=Count('id')
     ).order_by('-total_cost')[:5]
+
+    # Labor breakdown by category
+    labor_breakdown = LaborEntry.objects.filter(
+        project__created_by=request.user
+    ).values('category__name').annotate(
+        total_cost=Sum(F('number_of_workers') * F('rate_per_worker_per_day'))
+    ).order_by('-total_cost')[:10]
     
-    # Monthly spending (last 6 months)
-    six_months_ago = datetime.now().date() - timedelta(days=180)
-    monthly_spending = (
-        MaterialEntry.objects.filter(
-            project__created_by=request.user,
-            purchase_date__gte=six_months_ago
-        )
+    # Monthly spending
+    # ---- Materials grouped by month ----
+    materials_monthly = (
+        MaterialEntry.objects
+        .filter(project__created_by=request.user)
         .annotate(month=TruncMonth('purchase_date'))
         .values('month')
-        .annotate(total=Sum('cost'))
-        .order_by('month')
+        .annotate(material_cost=Sum('cost'))
     )
+
+    # ---- Labor grouped by month ----
+    labor_monthly = (
+        LaborEntry.objects
+        .filter(project__created_by=request.user)
+        .annotate(month=TruncMonth('work_date'))
+        .values('month')
+        .annotate(
+            labor_cost=Sum(F('number_of_workers') * F('rate_per_worker_per_day'))
+        )
+    )
+
+    # ---- Merge into single timeline ----
+    monthly_map = defaultdict(lambda: {
+        'material_cost': 0,
+        'labor_cost': 0
+    })
+
+    for row in materials_monthly:
+        monthly_map[row['month']]['material_cost'] = row['material_cost']
+
+    for row in labor_monthly:
+        monthly_map[row['month']]['labor_cost'] = row['labor_cost']
+
+    monthly_spending = [
+        {
+            'month': month,
+            'material_cost': data['material_cost'],
+            'labor_cost': data['labor_cost'],
+        }
+        for month, data in sorted(monthly_map.items())
+    ]
     
     context = {
         'total_projects': total_projects,
@@ -79,7 +134,11 @@ def dashboard(request):
         'completed_projects': completed_projects,
         'total_budget': total_budget,
         'total_spent': total_spent,
+        'total_material_cost': total_material_cost,
+        'total_labor_cost': total_labor_cost,
         'recent_materials': recent_materials,
+        'labor_breakdown': labor_breakdown,
+        'recent_labor': recent_labor,
         'projects': projects[:5],
         'material_type_stats': material_type_stats,
         'monthly_spending': monthly_spending,
@@ -130,6 +189,9 @@ def project_detail(request, pk):
     """Display project details and materials with filtering."""
     project = get_object_or_404(Project, pk=pk)
     materials = project.material_entries.all()
+
+    # Labor entries
+    labor_entries = project.labor_entries.all()
     
     # Search materials
     search_query = request.GET.get('search', '')
@@ -152,17 +214,23 @@ def project_detail(request, pk):
         materials = materials.filter(purchase_date__gte=date_from)
     if date_to:
         materials = materials.filter(purchase_date__lte=date_to)
-    
-    # Material breakdown by type
+
+    # Material breakdown by category
     material_breakdown = project.material_entries.values('category__name').annotate(
-        total_cost=Sum('cost'),
-        count=Count('id')
+        total=Sum('cost')
+    ).order_by('-total')
+
+    # Labor breakdown by category
+    labor_breakdown = project.labor_entries.values('category__name').annotate(
+        total_cost=Sum(F('number_of_workers') * F('rate_per_worker_per_day'))
     ).order_by('-total_cost')
     
     context = {
         'project': project,
         'materials': materials,
+        'labor_entries': labor_entries,
         'material_breakdown': material_breakdown,
+        'labor_breakdown': labor_breakdown,
         'search_query': search_query,
         'type_filter': type_filter,
         'date_from': date_from,

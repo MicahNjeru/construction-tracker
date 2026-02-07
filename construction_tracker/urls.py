@@ -27,6 +27,9 @@ urlpatterns = [
     
     # Tracker URLs
     path('', include('tracker.urls')),
+
+    # Labor URLs
+    path('', include('labor.urls')),
 ]
 
 # Serve media files in development

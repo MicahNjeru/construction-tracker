@@ -2,230 +2,472 @@
 
 {% block title %}{{ project.name }} - Construction Tracker{% endblock %}
 
+{% block extra_css %}
+<style>
+    .budget-meter {
+        height: 30px;
+        border-radius: 5px;
+        overflow: hidden;
+        background: #e9ecef;
+    }
+    .nav-tabs .nav-link {
+        color: #495057;
+    }
+    .nav-tabs .nav-link.active {
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <!-- Project Header -->
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-start mb-4">
     <div>
-        <h1>{{ project.name }}</h1>
-        <p class="text-muted mb-0">
-            {% if project.location %}<i class="bi bi-geo-alt"></i> {{ project.location }}{% endif %}
-        </p>
+        <h1><i class="bi bi-folder-fill"></i> {{ project.name }}</h1>
+        <p class="text-muted mb-2">{{ project.description }}</p>
+        {% if project.location %}
+        <p class="text-muted"><i class="bi bi-geo-alt"></i> {{ project.location }}</p>
+        {% endif %}
     </div>
     <div>
-        <a href="{% url 'project_update' project.pk %}" class="btn btn-outline-secondary">
-            <i class="bi bi-pencil"></i> Edit
-        </a>
-        <div class="btn-group">
-            <button type="button" class="btn btn-success dropdown-toggle" data-bs-toggle="dropdown">
-                <i class="bi bi-download"></i> Export
-            </button>
-            <ul class="dropdown-menu">
-                <li><a class="dropdown-item" href="{% url 'export_project_excel' project.pk %}">
-                    <i class="bi bi-file-earmark-excel"></i> Export to Excel
-                </a></li>
-                <li><a class="dropdown-item" href="{% url 'export_project_pdf' project.pk %}">
-                    <i class="bi bi-file-earmark-pdf"></i> Export to PDF
-                </a></li>
-            </ul>
-        </div>
-        <a href="{% url 'material_create' project.pk %}" class="btn btn-primary">
-            <i class="bi bi-plus-circle"></i> Add Material
-        </a>
+        <span class="badge bg-{% if project.status == 'in_progress' %}success{% elif project.status == 'completed' %}secondary{% elif project.status == 'planning' %}info{% elif project.status == 'on_hold' %}warning{% else %}danger{% endif %} fs-6">
+            {{ project.get_status_display }}
+        </span>
     </div>
 </div>
 
-<!-- Project Info Cards -->
+<!-- Budget Overview Cards -->
 <div class="row mb-4">
     <div class="col-md-3 col-sm-6 mb-3">
         <div class="card stat-card">
             <div class="card-body">
-                <h6 class="text-muted">Status</h6>
-                <h5 class="mb-0">
-                    <span class="badge bg-{% if project.status == 'in_progress' %}success{% elif project.status == 'completed' %}secondary{% elif project.status == 'planning' %}info{% elif project.status == 'on_hold' %}warning{% else %}danger{% endif %}">
-                        {{ project.get_status_display }}
-                    </span>
-                </h5>
+                <h6 class="text-muted">Total Budget</h6>
+                <h3 class="mb-0">Ksh{{ project.budget|floatformat:2 }}</h3>
             </div>
         </div>
     </div>
     <div class="col-md-3 col-sm-6 mb-3">
-        <div class="card stat-card success">
-            <div class="card-body">
-                <h6 class="text-muted">Budget</h6>
-                <h4 class="mb-0">Ksh{{ project.budget|floatformat:2 }}</h4>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3 col-sm-6 mb-3">
-        <div class="card stat-card warning">
+        <div class="card stat-card {% if project.is_over_budget %}danger{% else %}success{% endif %}">
             <div class="card-body">
                 <h6 class="text-muted">Total Spent</h6>
-                <h4 class="mb-0">Ksh{{ project.total_spent|floatformat:2 }}</h4>
+                <h3 class="mb-0">Ksh{{ project.total_spent|floatformat:2 }}</h3>
+                <small class="text-muted">
+                    Materials: Ksh{{ project.total_material_cost|floatformat:2 }}<br>
+                    Labor: Ksh{{ project.total_labor_cost|floatformat:2 }}
+                </small>
             </div>
         </div>
     </div>
     <div class="col-md-3 col-sm-6 mb-3">
-        <div class="card stat-card {% if project.remaining_budget < 0 %}danger{% else %}success{% endif %}">
+        <div class="card stat-card {% if project.remaining_budget < 0 %}danger{% else %}warning{% endif %}">
             <div class="card-body">
                 <h6 class="text-muted">Remaining</h6>
-                <h4 class="mb-0">Ksh{{ project.remaining_budget|floatformat:2 }}</h4>
+                <h3 class="mb-0">Ksh{{ project.remaining_budget|floatformat:2 }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card stat-card info">
+            <div class="card-body">
+                <h6 class="text-muted">Budget Used</h6>
+                <h3 class="mb-0">{{ project.budget_utilization_percentage|floatformat:1 }}%</h3>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Budget Progress -->
+<!-- Budget Progress Bar -->
 <div class="card mb-4">
     <div class="card-body">
-        <h5 class="card-title">Budget Utilization</h5>
-        {% widthratio project.total_spent project.budget 100 as percentage %}
-        <div class="progress" style="height: 30px;">
-            <div class="progress-bar {% if percentage >= 90 %}bg-danger{% elif percentage >= 75 %}bg-warning{% else %}bg-success{% endif %}" 
+        <h5 class="card-title">Budget Progress</h5>
+        <div class="budget-meter mb-2">
+            {% widthratio project.total_spent project.budget 100 as percentage %}
+            <div class="progress-bar {% if percentage >= 100 %}bg-danger{% elif percentage >= 90 %}bg-warning{% elif percentage >= 75 %}bg-info{% else %}bg-success{% endif %}" 
                  role="progressbar" 
-                 style="width: {{ percentage }}%;">
-                {{ percentage }}% Used
+                 style="width: {{ percentage }}%; height: 100%;"
+                 aria-valuenow="{{ percentage }}" 
+                 aria-valuemin="0" 
+                 aria-valuemax="100">
+                {{ percentage }}%
             </div>
         </div>
-        <p class="text-muted mt-2 mb-0">
-            Ksh{{ project.total_spent|floatformat:2 }} of Ksh{{ project.budget|floatformat:2 }} 
-            ({{ project.material_count }} material entries)
-        </p>
+        <div class="d-flex justify-content-between text-muted small">
+            <span>Ksh0</span>
+            <span>Ksh{{ project.budget|floatformat:2 }}</span>
+        </div>
     </div>
 </div>
 
-<!-- Search and Filter -->
+<!-- Action Buttons -->
 <div class="card mb-4">
     <div class="card-body">
-        <form method="get" class="row g-3">
-            <div class="col-md-4">
-                <input type="text" name="search" class="form-control" placeholder="Search materials..." value="{{ search_query }}">
-            </div>
-            <div class="col-md-3">
-                <select name="type" class="form-select">
-                    <option value="">All Categories</option>
-                    {% for cat in material_categories %}
-                    <option value="{{ cat.pk }}" {% if type_filter == cat.pk|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-2">
-                <input type="date" name="date_from" class="form-control" placeholder="From" value="{{ date_from }}">
-            </div>
-            <div class="col-md-2">
-                <input type="date" name="date_to" class="form-control" placeholder="To" value="{{ date_to }}">
-            </div>
-            <div class="col-md-1">
-                <button type="submit" class="btn btn-primary w-100">
-                    <i class="bi bi-search"></i>
-                </button>
-            </div>
-        </form>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{% url 'material_create' project.pk %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Add Material
+            </a>
+            <a href="{% url 'labor_create' project.pk %}" class="btn btn-success">
+                <i class="bi bi-person-plus"></i> Add Labor Entry
+            </a>
+            <a href="{% url 'project_update' project.pk %}" class="btn btn-outline-secondary">
+                <i class="bi bi-pencil"></i> Edit Project
+            </a>
+            <a href="{% url 'project_delete' project.pk %}" class="btn btn-outline-danger">
+                <i class="bi bi-trash"></i> Delete Project
+            </a>
+            <a href="{% url 'project_list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Projects
+            </a>
+        </div>
     </div>
 </div>
 
-<!-- Materials List -->
+<!-- Tabbed Interface for Materials and Labor -->
 <div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">Material Entries</h5>
-        <a href="{% url 'material_create' project.pk %}" class="btn btn-sm btn-primary">
-            <i class="bi bi-plus-circle"></i> Add Material
-        </a>
+    <div class="card-header">
+        <ul class="nav nav-tabs card-header-tabs" id="projectTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="materials-tab" data-bs-toggle="tab" data-bs-target="#materials" type="button" role="tab" aria-controls="materials" aria-selected="true">
+                    <i class="bi bi-box"></i> Materials ({{ project.material_entries.count }})
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="labor-tab" data-bs-toggle="tab" data-bs-target="#labor" type="button" role="tab" aria-controls="labor" aria-selected="false">
+                    <i class="bi bi-people"></i> Labor ({{ project.labor_entries.count }})
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab" aria-controls="overview" aria-selected="false">
+                    <i class="bi bi-graph-up"></i> Cost Breakdown
+                </button>
+            </li>
+        </ul>
     </div>
     <div class="card-body">
-        {% if materials %}
-        <div class="table-responsive">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>Type</th>
-                        <th>Description</th>
-                        <th>Quantity</th>
-                        <th>Cost</th>
-                        <th>Date</th>
-                        <th>Receipts</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for material in materials %}
-                    <tr>
-                        <td>
-                            <span class="badge bg-info material-type-badge">
-                                {{ material.category.name|default:"Uncategorized" }}
-                            </span>
-                        </td>
-                        <td>
-                            <strong>{{ material.description }}</strong>
-                            {% if material.supplier %}
-                            <br><small class="text-muted">{{ material.supplier }}</small>
-                            {% endif %}
-                        </td>
-                        <td>{{ material.quantity }} {{ material.unit.abbreviation }}</td>
-                        <td><strong>Ksh{{ material.cost|floatformat:2 }}</strong></td>
-                        <td>{{ material.purchase_date|date:"M d, Y" }}</td>
-                        <td>
-                            {% if material.has_receipt %}
-                                <a href="{% url 'receipt_gallery' material.pk %}" 
-                                   class="btn btn-sm btn-success" 
-                                   title="View Receipts ({{ material.receipt_count }})">
-                                    <i class="bi bi-images"></i> {{ material.receipt_count }}
-                                </a>
-                                <a href="{% url 'receipt_upload' material.pk %}" 
-                                   class="btn btn-sm btn-outline-success" 
-                                   title="Add Receipt">
-                                    <i class="bi bi-plus"></i>
-                                </a>
-                            {% else %}
-                                <a href="{% url 'receipt_upload' material.pk %}" 
-                                   class="btn btn-sm btn-outline-secondary"
-                                   title="Upload Receipt">
-                                    <i class="bi bi-upload"></i> Upload
-                                </a>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <div class="btn-group" role="group">
-                                <a href="{% url 'material_update' material.pk %}" 
-                                   class="btn btn-sm btn-outline-secondary"
-                                   title="Edit">
-                                    <i class="bi bi-pencil"></i>
-                                </a>
-                                <a href="{% url 'material_delete' material.pk %}" 
-                                   class="btn btn-sm btn-outline-danger"
-                                   title="Delete">
-                                    <i class="bi bi-trash"></i>
-                                </a>
+        <div class="tab-content" id="projectTabsContent">
+            <!-- Materials Tab -->
+            <div class="tab-pane fade show active" id="materials" role="tabpanel" aria-labelledby="materials-tab">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">Material Entries</h5>
+                    <div>
+                        <strong>Total: </strong>Ksh{{ project.total_material_cost|floatformat:2 }}
+                    </div>
+                </div>
+                
+                {% if materials %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Category</th>
+                                <th>Description</th>
+                                <th class="text-end">Quantity</th>
+                                <th class="text-end">Cost</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for material in materials %}
+                            <tr>
+                                <td>{{ material.purchase_date|date:"M d, Y" }}</td>
+                                <td>
+                                    <span class="badge bg-info">{{ material.category.name|default:"N/A" }}</span>
+                                </td>
+                                <td>{{ material.description|truncatewords:10 }}</td>
+                                <td class="text-end">{{ material.quantity }} {{ material.unit.abbreviation }}</td>
+                                <td class="text-end"><strong>Ksh{{ material.cost|floatformat:2 }}</strong></td>
+                                <td class="text-end">
+                                    <a href="{% url 'material_update' material.pk %}" class="btn btn-sm btn-outline-secondary" title="Edit">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="{% url 'material_delete' material.pk %}" class="btn btn-sm btn-outline-danger" title="Delete">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center my-5">
+                    <i class="bi bi-box" style="font-size: 4rem; color: #ccc;"></i>
+                    <h4 class="mt-3">No Materials Yet</h4>
+                    <p class="text-muted">Start tracking material costs for this project.</p>
+                    <a href="{% url 'material_create' project.pk %}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> Add First Material
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Labor Tab -->
+            <div class="tab-pane fade" id="labor" role="tabpanel" aria-labelledby="labor-tab">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">Labor Entries</h5>
+                    <div>
+                        <strong>Total: </strong>Ksh{{ project.total_labor_cost|floatformat:2 }}
+                        <a href="{% url 'labor_summary' project.pk %}" class="btn btn-sm btn-outline-info ms-2">
+                            <i class="bi bi-graph-up"></i> View Summary
+                        </a>
+                    </div>
+                </div>
+                
+                {% if labor_entries %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Category</th>
+                                <th class="text-center">Workers</th>
+                                <th class="text-end">Rate/Worker/Day</th>
+                                <th class="text-end">Total Cost</th>
+                                <th>Notes</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for labor in labor_entries %}
+                            <tr>
+                                <td>{{ labor.work_date|date:"M d, Y" }}</td>
+                                <td>
+                                    <span class="badge bg-success">{{ labor.category.name }}</span>
+                                </td>
+                                <td class="text-center">{{ labor.number_of_workers }}</td>
+                                <td class="text-end">Ksh{{ labor.rate_per_worker_per_day|floatformat:2 }}</td>
+                                <td class="text-end"><strong>Ksh{{ labor.total_cost|floatformat:2 }}</strong></td>
+                                <td>
+                                    {% if labor.notes %}
+                                    <small>{{ labor.notes|truncatewords:8 }}</small>
+                                    {% else %}
+                                    <small class="text-muted">-</small>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <a href="{% url 'labor_update' labor.pk %}" class="btn btn-sm btn-outline-secondary" title="Edit">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="{% url 'labor_delete' labor.pk %}" class="btn btn-sm btn-outline-danger" title="Delete">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center my-5">
+                    <i class="bi bi-people" style="font-size: 4rem; color: #ccc;"></i>
+                    <h4 class="mt-3">No Labor Entries Yet</h4>
+                    <p class="text-muted">Start tracking labor costs for this project.</p>
+                    <a href="{% url 'labor_create' project.pk %}" class="btn btn-success">
+                        <i class="bi bi-person-plus"></i> Add First Labor Entry
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Cost Breakdown Tab -->
+            <div class="tab-pane fade" id="overview" role="tabpanel" aria-labelledby="overview-tab">
+                <h5 class="mb-4">Cost Breakdown</h5>
+                
+                <div class="row">
+                    <!-- Materials Breakdown -->
+                    <div class="col-md-6 mb-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0"><i class="bi bi-box"></i> Materials by Category</h6>
                             </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                            <div class="card-body">
+                                {% if material_breakdown %}
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Category</th>
+                                            <th class="text-end">Cost</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for item in material_breakdown %}
+                                        <tr>
+                                            <td>{{ item.category__name }}</td>
+                                            <td class="text-end">Ksh{{ item.total|floatformat:2 }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr class="table-active">
+                                            <th>Total</th>
+                                            <th class="text-end">Ksh{{ project.total_material_cost|floatformat:2 }}</th>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                                {% else %}
+                                <p class="text-muted text-center">No material data</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Labor Breakdown -->
+                    <div class="col-md-6 mb-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0"><i class="bi bi-people"></i> Labor by Category</h6>
+                            </div>
+                            <div class="card-body">
+                                {% if labor_breakdown %}
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Category</th>
+                                            <th class="text-end">Cost</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for item in labor_breakdown %}
+                                        <tr>
+                                            <td>{{ item.category__name }}</td>
+                                            <td class="text-end">Ksh{{ item.total_cost|floatformat:2 }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr class="table-active">
+                                            <th>Total</th>
+                                            <th class="text-end">Ksh{{ project.total_labor_cost|floatformat:2 }}</th>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                                {% else %}
+                                <p class="text-muted text-center">No labor data</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Overall Cost Distribution -->
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="bi bi-pie-chart"></i> Overall Distribution</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span>Materials</span>
+                                        <strong>Ksh{{ project.total_material_cost|floatformat:2 }}</strong>
+                                    </div>
+                                    <div class="progress">
+                                        {% if project.total_spent > 0 %}
+                                        {% widthratio project.total_material_cost project.total_spent 100 as material_percentage %}
+                                        {% else %}
+                                        {% widthratio 0 1 100 as material_percentage %}
+                                        {% endif %}
+                                        <div class="progress-bar bg-info" style="width: {{ material_percentage }}%">
+                                            {{ material_percentage }}%
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span>Labor</span>
+                                        <strong>Ksh{{ project.total_labor_cost|floatformat:2 }}</strong>
+                                    </div>
+                                    <div class="progress">
+                                        {% if project.total_spent > 0 %}
+                                        {% widthratio project.total_labor_cost project.total_spent 100 as labor_percentage %}
+                                        {% else %}
+                                        {% widthratio 0 1 100 as labor_percentage %}
+                                        {% endif %}
+                                        <div class="progress-bar bg-success" style="width: {{ labor_percentage }}%">
+                                            {{ labor_percentage }}%
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <canvas id="costPieChart" style="max-height: 200px;"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-        {% else %}
-        <div class="text-center my-4">
-            <i class="bi bi-box" style="font-size: 3rem; color: #ccc;"></i>
-            <h5 class="mt-3">No Materials Found</h5>
-            {% if search_query or type_filter or date_from or date_to %}
-            <p class="text-muted">Try adjusting your search filters.</p>
-            <a href="{% url 'project_detail' project.pk %}" class="btn btn-outline-secondary">
-                Clear Filters
-            </a>
-            {% else %}
-            <p class="text-muted">Start adding materials for this project.</p>
-            <a href="{% url 'material_create' project.pk %}" class="btn btn-primary">
-                <i class="bi bi-plus-circle"></i> Add First Material
-            </a>
-            {% endif %}
-        </div>
-        {% endif %}
     </div>
 </div>
 
-<!-- Back Button -->
-<div class="mt-4">
-    <a href="{% url 'project_list' %}" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left"></i> Back to Projects
-    </a>
+<!-- Project Details -->
+<div class="card mt-4">
+    <div class="card-header">
+        <h5 class="mb-0">Project Details</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Start Date:</strong> {{ project.start_date|date:"F d, Y" }}</p>
+                {% if project.end_date %}
+                <p><strong>End Date:</strong> {{ project.end_date|date:"F d, Y" }}</p>
+                <p><strong>Duration:</strong> {{ project.days_duration }} days</p>
+                {% endif %}
+            </div>
+            <div class="col-md-6">
+                <p><strong>Created By:</strong> {{ project.created_by.username }}</p>
+                <p><strong>Created:</strong> {{ project.created_at|date:"F d, Y" }}</p>
+                <p><strong>Last Updated:</strong> {{ project.updated_at|date:"F d, Y" }}</p>
+            </div>
+        </div>
+    </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Cost Distribution Pie Chart
+    const ctx = document.getElementById('costPieChart');
+    if (ctx) {
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Materials', 'Labor'],
+                datasets: [{
+                    data: [{{ project.total_material_cost|default:0 }}, {{ project.total_labor_cost|default:0 }}],
+                    backgroundColor: [
+                        'rgba(54, 162, 235, 0.7)',
+                        'rgba(75, 192, 192, 0.7)'
+                    ],
+                    borderColor: [
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(75, 192, 192, 1)'
+                    ],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.label + ': Ksh' + context.parsed.toFixed(2);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

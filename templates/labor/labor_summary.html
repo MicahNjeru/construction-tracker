@@ -1,0 +1,279 @@
+{% extends 'base.html' %}
+
+{% block title %}Labor Summary - {{ project.name }} - Construction Tracker{% endblock %}
+
+{% block extra_css %}
+<style>
+    .chart-container {
+        position: relative;
+        height: 400px;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1><i class="bi bi-people-fill"></i> Labor Summary</h1>
+        <p class="text-muted mb-0">{{ project.name }}</p>
+    </div>
+    <div>
+        <a href="{% url 'project_detail' project.pk %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Project
+        </a>
+        <a href="{% url 'labor_create' project.pk %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Add Labor Entry
+        </a>
+    </div>
+</div>
+
+<!-- Labor Cost Overview -->
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <h6 class="text-muted">Total Labor Cost</h6>
+                <h2 class="mb-0">Ksh{{ total_labor_cost|floatformat:2 }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card success">
+            <div class="card-body">
+                <h6 class="text-muted">Total Labor Entries</h6>
+                <h2 class="mb-0">{{ labor_entries.count }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card warning">
+            <div class="card-body">
+                <h6 class="text-muted">Labor Categories Used</h6>
+                <h2 class="mb-0">{{ labor_breakdown.count }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Labor Breakdown Chart -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Labor Cost Breakdown by Category</h5>
+            </div>
+            <div class="card-body">
+                {% if labor_breakdown %}
+                <div class="chart-container">
+                    <canvas id="laborBreakdownChart"></canvas>
+                </div>
+                {% else %}
+                <p class="text-muted text-center my-5">No labor entries yet. Add labor entries to see the breakdown.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Labor Breakdown Table -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Labor Cost by Category</h5>
+            </div>
+            <div class="card-body">
+                {% if labor_breakdown %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th class="text-center">Days Worked</th>
+                                <th class="text-end">Total Cost</th>
+                                <th class="text-end">% of Labor Budget</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in labor_breakdown %}
+                            <tr>
+                                <td>
+                                    <span class="badge bg-info">{{ item.category__name }}</span>
+                                </td>
+                                <td class="text-center">{{ item.days }}</td>
+                                <td class="text-end">
+                                    <strong>Ksh{{ item.total_cost|floatformat:2 }}</strong>
+                                </td>
+                                <td class="text-end">
+                                    {% if total_labor_cost > 0 %}
+                                    {% widthratio item.total_cost total_labor_cost 100 as percentage %}
+                                    {{ percentage }}%
+                                    {% else %}
+                                    0%
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-active">
+                                <th>Total</th>
+                                <th class="text-center">{{ labor_entries.count }}</th>
+                                <th class="text-end">Ksh{{ total_labor_cost|floatformat:2 }}</th>
+                                <th class="text-end">100%</th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center my-4">No labor entries yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- All Labor Entries -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">All Labor Entries</h5>
+            </div>
+            <div class="card-body">
+                {% if labor_entries %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Category</th>
+                                <th class="text-center">Workers</th>
+                                <th class="text-end">Rate/Worker/Day</th>
+                                <th class="text-end">Total Cost</th>
+                                <th>Notes</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for entry in labor_entries %}
+                            <tr>
+                                <td>{{ entry.work_date|date:"M d, Y" }}</td>
+                                <td>
+                                    <span class="badge bg-info">{{ entry.category.name }}</span>
+                                </td>
+                                <td class="text-center">{{ entry.number_of_workers }}</td>
+                                <td class="text-end">Ksh{{ entry.rate_per_worker_per_day|floatformat:2 }}</td>
+                                <td class="text-end">
+                                    <strong>Ksh{{ entry.total_cost|floatformat:2 }}</strong>
+                                </td>
+                                <td>
+                                    {% if entry.notes %}
+                                    <small class="text-muted">{{ entry.notes|truncatewords:10 }}</small>
+                                    {% else %}
+                                    <small class="text-muted">-</small>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <a href="{% url 'labor_update' entry.pk %}" class="btn btn-sm btn-outline-secondary" title="Edit">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="{% url 'labor_delete' entry.pk %}" class="btn btn-sm btn-outline-danger" title="Delete">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center my-5">
+                    <i class="bi bi-people" style="font-size: 4rem; color: #ccc;"></i>
+                    <h3 class="mt-3">No Labor Entries Yet</h3>
+                    <p class="text-muted">Start tracking labor costs by adding your first entry.</p>
+                    <a href="{% url 'labor_create' project.pk %}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> Add Labor Entry
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if labor_breakdown %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Labor Breakdown Chart
+    const laborBreakdownCtx = document.getElementById('laborBreakdownChart').getContext('2d');
+    const laborBreakdownData = {
+        labels: [
+            {% for item in labor_breakdown %}
+            '{{ item.category__name }}',
+            {% endfor %}
+        ],
+        datasets: [{
+            label: 'Labor Cost (Ksh)',
+            data: [
+                {% for item in labor_breakdown %}
+                {{ item.total_cost }},
+                {% endfor %}
+            ],
+            backgroundColor: [
+                'rgba(54, 162, 235, 0.7)',
+                'rgba(255, 99, 132, 0.7)',
+                'rgba(255, 206, 86, 0.7)',
+                'rgba(75, 192, 192, 0.7)',
+                'rgba(153, 102, 255, 0.7)',
+                'rgba(255, 159, 64, 0.7)',
+                'rgba(199, 199, 199, 0.7)',
+                'rgba(83, 102, 255, 0.7)',
+            ],
+            borderColor: [
+                'rgba(54, 162, 235, 1)',
+                'rgba(255, 99, 132, 1)',
+                'rgba(255, 206, 86, 1)',
+                'rgba(75, 192, 192, 1)',
+                'rgba(153, 102, 255, 1)',
+                'rgba(255, 159, 64, 1)',
+                'rgba(199, 199, 199, 1)',
+                'rgba(83, 102, 255, 1)',
+            ],
+            borderWidth: 2
+        }]
+    };
+    
+    new Chart(laborBreakdownCtx, {
+        type: 'doughnut',
+        data: laborBreakdownData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            label += 'Ksh' + context.parsed.toFixed(2);
+                            return label;
+                        }
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endif %}
+{% endblock %}

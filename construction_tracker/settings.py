@@ -47,7 +47,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     # Custom Apps
-    'tracker'
+    'tracker',
+    'labor',
 ]
 
 MIDDLEWARE = [
