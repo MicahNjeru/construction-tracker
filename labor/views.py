@@ -31,6 +31,7 @@ def labor_create(request, project_pk):
         'title': 'Add Labor Entry'
     })
 
+
 @login_required
 def labor_update(request, pk):
     labor = get_object_or_404(LaborEntry, pk=pk)

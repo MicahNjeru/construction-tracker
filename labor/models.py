@@ -37,7 +37,7 @@ class LaborEntry(models.Model):
 
     class Meta:
         ordering = ['-work_date', '-created_at']
-        unique_together = ('project', 'category', 'work_date')
+        unique_together = ('project', 'category', 'work_date', 'created_at')
         verbose_name_plural = 'Labor Entries'
 
 
