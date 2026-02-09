@@ -69,7 +69,7 @@ def dashboard(request):
     # Recent labor entries
     recent_labor = LaborEntry.objects.filter(
         project__created_by=request.user
-    ).select_related('project', 'category').order_by('-work_date', '-created_at')[:10]
+    ).select_related('project', 'category').order_by('-work_date', '-created_at')[:5]
     
     # Material type breakdown by category
     material_type_stats = MaterialEntry.objects.filter(
@@ -84,7 +84,7 @@ def dashboard(request):
         project__created_by=request.user
     ).values('category__name').annotate(
         total_cost=Sum(F('number_of_workers') * F('rate_per_worker_per_day'))
-    ).order_by('-total_cost')[:10]
+    ).order_by('-total_cost')[:5]
     
     # Monthly spending
     # ---- Materials grouped by month ----
