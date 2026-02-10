@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+
+{% block title %}Upload Receipt - {{ project.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'project_detail' project.pk %}">{{ project.name }}</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'expense_list' project.pk %}">Expenses</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'expense_detail' expense.pk %}">Details</a></li>
+                    <li class="breadcrumb-item active">Upload Receipt</li>
+                </ol>
+            </nav>
+
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-cloud-upload"></i> Upload Receipt
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <strong>Expense:</strong> {{ expense.description }}<br>
+                        <strong>Amount:</strong> Ksh{{ expense.amount|floatformat:2 }}<br>
+                        <strong>Date:</strong> {{ expense.expense_date|date:"M d, Y" }}
+                    </div>
+
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+
+                        {% if form.errors %}
+                        <div class="alert alert-danger">
+                            <strong>Please correct the errors below:</strong>
+                            {{ form.errors }}
+                        </div>
+                        {% endif %}
+
+                        <div class="mb-3">
+                            <label for="{{ form.file.id_for_label }}" class="form-label">
+                                Receipt File <span class="text-danger">*</span>
+                            </label>
+                            {{ form.file }}
+                            <small class="form-text text-muted d-block">
+                                Accepted formats: Images (JPG, PNG) or PDF. Max size: 5MB
+                            </small>
+                            {% if form.file.errors %}
+                            <div class="text-danger">{{ form.file.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.description.id_for_label }}" class="form-label">
+                                Description (Optional)
+                            </label>
+                            {{ form.description }}
+                            <small class="form-text text-muted">
+                                Brief description of this receipt
+                            </small>
+                            {% if form.description.errors %}
+                            <div class="text-danger">{{ form.description.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'expense_detail' expense.pk %}" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-cloud-upload"></i> Upload Receipt
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-body bg-light">
+                    <h6><i class="bi bi-info-circle"></i> Tips:</h6>
+                    <ul class="mb-0 small">
+                        <li>Take clear, well-lit photos of receipts</li>
+                        <li>Ensure all text is readable</li>
+                        <li>You can upload multiple receipts for one expense</li>
+                        <li>Supported formats: JPG, PNG, PDF</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

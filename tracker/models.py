@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Sum, F
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
@@ -165,7 +166,6 @@ class Project(models.Model):
     def __str__(self):
         return self.name
 
-
     @property
     def total_material_cost(self):
         """Calculate total amount spent on materials."""
@@ -174,21 +174,27 @@ class Project(models.Model):
         )['total']
         return total or Decimal('0.00')
     
-
     @property
     def total_labor_cost(self):
         """Calculate total amount spent on labor."""
-        from django.db.models import F, Sum
         total = self.labor_entries.aggregate(
         total=Sum(F('number_of_workers') * F('rate_per_worker_per_day'))
         )['total']
         return total or Decimal('0.00')
     
+    @property
+    def total_expense_cost(self):
+        """Calculate total amount spent on expenses."""
+        return (
+            self.expense_entries.aggregate(
+                total=Sum('amount')
+            )['total'] or Decimal('0.00')
+        )
     
     @property
     def total_spent(self):
         """Calculate total amount spent on materials and labor."""
-        return self.total_material_cost + self.total_labor_cost
+        return self.total_material_cost + self.total_labor_cost + self.total_expense_cost
     
     @property
     def remaining_budget(self):

@@ -1,0 +1,24 @@
+# Expense Categories for Construction Project Tracker
+# Format: key|name|description
+# Lines starting with # are comments
+
+transport | Material Transport | Cost of transporting materials from supplier to construction site
+licenses | Government Licenses & Permits | Fees for construction permits, licenses, and regulatory approvals
+transaction_fees | Transaction Charges | Bank fees, M-Pesa charges, and payment processing fees
+utilities | Utilities | Electricity, water, and other utility costs during construction
+equipment_rental | Equipment Rental | Rental fees for machinery, tools, and equipment
+professional_services | Professional Services | Fees for architects, engineers, surveyors, and consultants
+insurance | Insurance | Construction insurance, liability coverage, and worker compensation
+waste_disposal | Waste Disposal | Cost of removing construction debris and waste management
+security | Security | Security guards, fencing, and site protection
+office_supplies | Office & Admin Supplies | Stationery, printing, administrative materials
+inspection_fees | Inspection Fees | Fees for mandatory inspections and quality assurance tests
+contingency | Contingency | Unexpected expenses and miscellaneous costs
+food_accommodation | Food & Accommodation | Meals and accommodation for workers when applicable
+communication | Communication | Phone bills, internet, and communication expenses
+fuel | Fuel & Vehicle Maintenance | Fuel costs and vehicle maintenance for project vehicles
+legal_fees | Legal Fees | Legal consultation and documentation fees
+taxes | Taxes & Levies | Government taxes and local authority levies
+advertising | Marketing & Advertising | Costs for project promotion and signage
+training | Training & Safety | Worker training and safety equipment costs
+other | Other Expenses | Miscellaneous expenses not covered by other categories

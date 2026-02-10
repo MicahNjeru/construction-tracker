@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+
+{% block title %}Delete Expense - {{ project.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'project_detail' project.pk %}">{{ project.name }}</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'expense_list' project.pk %}">Expenses</a></li>
+                    <li class="breadcrumb-item active">Delete</li>
+                </ol>
+            </nav>
+
+            <div class="card shadow border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-exclamation-triangle"></i> Confirm Deletion
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <strong>Warning:</strong> This action cannot be undone!
+                    </div>
+
+                    <p>Are you sure you want to delete this expense entry?</p>
+
+                    <div class="card bg-light mb-3">
+                        <div class="card-body">
+                            <dl class="row mb-0">
+                                <dt class="col-sm-4">Category:</dt>
+                                <dd class="col-sm-8">{{ expense.category.name }}</dd>
+
+                                <dt class="col-sm-4">Description:</dt>
+                                <dd class="col-sm-8">{{ expense.description }}</dd>
+
+                                <dt class="col-sm-4">Amount:</dt>
+                                <dd class="col-sm-8">
+                                    <strong class="text-danger">Ksh{{ expense.amount|floatformat:2 }}</strong>
+                                </dd>
+
+                                <dt class="col-sm-4">Date:</dt>
+                                <dd class="col-sm-8">{{ expense.expense_date|date:"M d, Y" }}</dd>
+                            </dl>
+                        </div>
+                    </div>
+
+                    {% if expense.receipts.count > 0 %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        This expense has <strong>{{ expense.receipts.count }}</strong> receipt(s) attached. 
+                        They will also be deleted.
+                    </div>
+                    {% endif %}
+
+                    <form method="post" class="mt-4">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'expense_list' project.pk %}" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="bi bi-trash"></i> Yes, Delete Expense
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

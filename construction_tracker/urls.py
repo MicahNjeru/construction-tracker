@@ -30,6 +30,9 @@ urlpatterns = [
 
     # Labor URLs
     path('', include('labor.urls')),
+
+    # Expenses URLs
+    path('', include('expenses.urls')),
 ]
 
 # Serve media files in development
