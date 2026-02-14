@@ -103,15 +103,32 @@
 <div class="card mb-4">
     <div class="card-body">
         <div class="d-flex flex-wrap gap-2">
+            <!-- Add Entry Buttons -->
             <a href="{% url 'material_create' project.pk %}" class="btn btn-primary">
                 <i class="bi bi-plus-circle"></i> Add Material
             </a>
             <a href="{% url 'labor_create' project.pk %}" class="btn btn-success">
-                <i class="bi bi-person-plus"></i> Add Labor Entry
+                <i class="bi bi-person-plus"></i> Add Labor
             </a>
             <a href="{% url 'expense_create' project.pk %}" class="btn btn-warning">
                 <i class="bi bi-receipt"></i> Add Expense
             </a>
+            
+            <!-- Divider -->
+            <div class="vr"></div>
+            
+            <!-- Export Buttons -->
+            <a href="{% url 'export_project_excel' project.pk %}" class="btn btn-outline-success">
+                <i class="bi bi-file-earmark-excel"></i> Export Excel
+            </a>
+            <a href="{% url 'export_project_pdf' project.pk %}" class="btn btn-outline-danger">
+                <i class="bi bi-file-earmark-pdf"></i> Export PDF
+            </a>
+            
+            <!-- Divider -->
+            <div class="vr"></div>
+            
+            <!-- Management Buttons -->
             <a href="{% url 'project_update' project.pk %}" class="btn btn-outline-secondary">
                 <i class="bi bi-pencil"></i> Edit Project
             </a>

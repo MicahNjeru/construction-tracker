@@ -10,6 +10,15 @@ from .models import *
 from .forms import *
 from labor.models import LaborEntry
 from expenses.models import ExpenseEntry, ExpenseCategory
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
 import os
 
 # Create your views here.
@@ -557,68 +566,198 @@ def receipt_delete(request, pk):
 
 @login_required
 def export_project_excel(request, pk):
-    """Export project materials to Excel."""
-    try:
-        from openpyxl import Workbook
-        from openpyxl.styles import Font, PatternFill, Alignment
-    except ImportError:
-        messages.error(request, 'openpyxl is required for Excel export. Install with: pip install openpyxl')
-        return redirect('project_detail', pk=pk)
-    
+    """Export project data to Excel"""
     project = get_object_or_404(Project, pk=pk)
-    materials = project.material_entries.all()
     
     # Create workbook
     wb = Workbook()
-    ws = wb.active
-    ws.title = "Materials"
     
-    # Header styling
+    # Define styles
     header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
-    header_font = Font(color="FFFFFF", bold=True)
+    header_font = Font(bold=True, color="FFFFFF", size=12)
+    title_font = Font(bold=True, size=14)
+    border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
     
-    # Headers
-    headers = ['Date', 'Type', 'Description', 'Quantity', 'Unit', 'Cost', 'Supplier', 'Has Receipt', 'Notes']
-    for col, header in enumerate(headers, 1):
-        cell = ws.cell(row=1, column=col, value=header)
-        cell.fill = header_fill
-        cell.font = header_font
-        cell.alignment = Alignment(horizontal='center')
+    # ===== PROJECT SUMMARY SHEET =====
+    ws_summary = wb.active
+    ws_summary.title = "Project Summary"
     
-    # Data
-    for row, material in enumerate(materials, 2):
-        ws.cell(row=row, column=1, value=material.purchase_date.strftime('%Y-%m-%d'))
-        ws.cell(row=row, column=2, value=material.category.name)
-        ws.cell(row=row, column=3, value=material.description)
-        ws.cell(row=row, column=4, value=float(material.quantity))
-        ws.cell(row=row, column=5, value=material.unit.abbreviation)
-        ws.cell(row=row, column=6, value=float(material.cost))
-        ws.cell(row=row, column=7, value=material.supplier)
-        ws.cell(row=row, column=8, value='Yes' if material.has_receipt else 'No')
-        ws.cell(row=row, column=9, value=material.notes)
+    # Project header
+    ws_summary['A1'] = "PROJECT SUMMARY"
+    ws_summary['A1'].font = title_font
+    ws_summary.merge_cells('A1:B1')
     
-    # Summary
-    summary_row = len(materials) + 3
-    ws.cell(row=summary_row, column=5, value="TOTAL:").font = Font(bold=True)
-    ws.cell(row=summary_row, column=6, value=float(project.total_spent)).font = Font(bold=True)
+    # Project details
+    summary_data = [
+        ("Project Name:", project.name),
+        ("Location:", project.location or "N/A"),
+        ("Status:", project.get_status_display()),
+        ("Start Date:", project.start_date.strftime('%Y-%m-%d')),
+        ("End Date:", project.end_date.strftime('%Y-%m-%d') if project.end_date else "N/A"),
+        ("", ""),
+        ("FINANCIAL SUMMARY", ""),
+        ("Budget:", f"Ksh {project.budget:,.2f}"),
+        ("Total Material Cost:", f"Ksh {project.total_material_cost:,.2f}"),
+        ("Total Labor Cost:", f"Ksh {project.total_labor_cost:,.2f}"),
+        ("Total Expenses:", f"Ksh {project.total_expense_cost:,.2f}"),
+        ("Total Spent:", f"Ksh {project.total_spent:,.2f}"),
+        ("Remaining Budget:", f"Ksh {project.remaining_budget:,.2f}"),
+        ("Budget Utilization:", f"{project.budget_utilization_percentage:.2f}%"),
+    ]
+    
+    row = 3
+    for label, value in summary_data:
+        ws_summary[f'A{row}'] = label
+        ws_summary[f'B{row}'] = value
+        if label in ["FINANCIAL SUMMARY", "PROJECT SUMMARY"]:
+            ws_summary[f'A{row}'].font = Font(bold=True, size=12)
+        else:
+            ws_summary[f'A{row}'].font = Font(bold=True)
+        row += 1
     
     # Adjust column widths
-    ws.column_dimensions['A'].width = 12
-    ws.column_dimensions['B'].width = 15
-    ws.column_dimensions['C'].width = 40
-    ws.column_dimensions['D'].width = 10
-    ws.column_dimensions['E'].width = 8
-    ws.column_dimensions['F'].width = 12
-    ws.column_dimensions['G'].width = 25
-    ws.column_dimensions['H'].width = 12
-    ws.column_dimensions['I'].width = 30
+    ws_summary.column_dimensions['A'].width = 25
+    ws_summary.column_dimensions['B'].width = 40
+    
+    # ===== MATERIALS SHEET =====
+    ws_materials = wb.create_sheet("Materials")
+    
+    # Headers
+    material_headers = [
+        "Date", "Category", "Description", "Quantity", "Unit", 
+        "Cost", "Unit Cost", "Supplier", "Qty Used", "Qty Remaining", "Notes"
+    ]
+    
+    for col_num, header in enumerate(material_headers, 1):
+        cell = ws_materials.cell(row=1, column=col_num)
+        cell.value = header
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.border = border
+    
+    # Data
+    materials = project.material_entries.select_related('category', 'unit').all()
+    for row_num, material in enumerate(materials, 2):
+        ws_materials.cell(row=row_num, column=1).value = material.purchase_date.strftime('%Y-%m-%d')
+        ws_materials.cell(row=row_num, column=2).value = material.category.name
+        ws_materials.cell(row=row_num, column=3).value = material.description
+        ws_materials.cell(row=row_num, column=4).value = float(material.quantity)
+        ws_materials.cell(row=row_num, column=5).value = material.unit.abbreviation
+        ws_materials.cell(row=row_num, column=6).value = float(material.cost)
+        ws_materials.cell(row=row_num, column=7).value = float(material.unit_cost)
+        ws_materials.cell(row=row_num, column=8).value = material.supplier or "N/A"
+        ws_materials.cell(row=row_num, column=9).value = float(material.quantity_used)
+        ws_materials.cell(row=row_num, column=10).value = float(material.quantity_remaining)
+        ws_materials.cell(row=row_num, column=11).value = material.notes or ""
+        
+        # Apply borders
+        for col in range(1, 12):
+            ws_materials.cell(row=row_num, column=col).border = border
+    
+    # Adjust column widths
+    ws_materials.column_dimensions['A'].width = 12
+    ws_materials.column_dimensions['B'].width = 15
+    ws_materials.column_dimensions['C'].width = 30
+    ws_materials.column_dimensions['D'].width = 10
+    ws_materials.column_dimensions['E'].width = 8
+    ws_materials.column_dimensions['F'].width = 12
+    ws_materials.column_dimensions['G'].width = 12
+    ws_materials.column_dimensions['H'].width = 20
+    ws_materials.column_dimensions['I'].width = 10
+    ws_materials.column_dimensions['J'].width = 12
+    ws_materials.column_dimensions['K'].width = 30
+    
+    # ===== LABOR SHEET =====
+    ws_labor = wb.create_sheet("Labor")
+    
+    # Headers
+    labor_headers = [
+        "Date", "Category", "Description", "Workers", 
+        "Rate/Worker/Day", "Total Cost", "Notes"
+    ]
+    
+    for col_num, header in enumerate(labor_headers, 1):
+        cell = ws_labor.cell(row=1, column=col_num)
+        cell.value = header
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.border = border
+    
+    # Data
+    labor_entries = project.labor_entries.select_related('category').all()
+    for row_num, labor in enumerate(labor_entries, 2):
+        ws_labor.cell(row=row_num, column=1).value = labor.work_date.strftime('%Y-%m-%d')
+        ws_labor.cell(row=row_num, column=2).value = labor.category.name
+        ws_labor.cell(row=row_num, column=3).value = labor.number_of_workers
+        ws_labor.cell(row=row_num, column=4).value = float(labor.rate_per_worker_per_day)
+        ws_labor.cell(row=row_num, column=5).value = float(labor.total_cost)
+        ws_labor.cell(row=row_num, column=6).value = labor.notes or ""
+        
+        # Apply borders
+        for col in range(1, 8):
+            ws_labor.cell(row=row_num, column=col).border = border
+    
+    # Adjust column widths
+    ws_labor.column_dimensions['A'].width = 12
+    ws_labor.column_dimensions['B'].width = 15
+    ws_labor.column_dimensions['C'].width = 30
+    ws_labor.column_dimensions['D'].width = 10
+    ws_labor.column_dimensions['E'].width = 15
+    ws_labor.column_dimensions['F'].width = 12
+    
+    # ===== EXPENSES SHEET =====
+    ws_expenses = wb.create_sheet("Expenses")
+    
+    # Headers
+    expense_headers = [
+        "Date", "Category", "Description", "Amount", 
+        "Payment Method", "Payee", "Notes"
+    ]
+    
+    for col_num, header in enumerate(expense_headers, 1):
+        cell = ws_expenses.cell(row=1, column=col_num)
+        cell.value = header
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.border = border
+    
+    # Data
+    expense_entries = project.expense_entries.select_related('category').all()
+    for row_num, expense in enumerate(expense_entries, 2):
+        ws_expenses.cell(row=row_num, column=1).value = expense.expense_date.strftime('%Y-%m-%d')
+        ws_expenses.cell(row=row_num, column=2).value = expense.category.name
+        ws_expenses.cell(row=row_num, column=3).value = expense.description
+        ws_expenses.cell(row=row_num, column=4).value = float(expense.amount)
+        ws_expenses.cell(row=row_num, column=5).value = expense.get_payment_method_display()
+        ws_expenses.cell(row=row_num, column=6).value = expense.payee or "N/A"
+        ws_expenses.cell(row=row_num, column=7).value = expense.notes or ""
+        
+        # Apply borders
+        for col in range(1, 8):
+            ws_expenses.cell(row=row_num, column=col).border = border
+    
+    # Adjust column widths
+    ws_expenses.column_dimensions['A'].width = 12
+    ws_expenses.column_dimensions['B'].width = 15
+    ws_expenses.column_dimensions['C'].width = 30
+    ws_expenses.column_dimensions['D'].width = 12
+    ws_expenses.column_dimensions['E'].width = 15
+    ws_expenses.column_dimensions['F'].width = 20
+    ws_expenses.column_dimensions['G'].width = 30
     
     # Create response
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
-    filename = f"{project.name.replace(' ', '_')}_materials_{datetime.now().strftime('%Y%m%d')}.xlsx"
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response['Content-Disposition'] = f'attachment; filename="{project.name}_report.xlsx"'
     
     wb.save(response)
     return response
@@ -626,93 +765,281 @@ def export_project_excel(request, pk):
 
 @login_required
 def export_project_pdf(request, pk):
-    """Export project summary to PDF."""
-    try:
-        from reportlab.lib.pagesizes import letter, A4
-        from reportlab.lib import colors
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-        from reportlab.lib.units import inch
-    except ImportError:
-        messages.error(request, 'reportlab is required for PDF export. Install with: pip install reportlab')
-        return redirect('project_detail', pk=pk)
-    
+    """Export project data to PDF including materials, labor, and expenses."""
     project = get_object_or_404(Project, pk=pk)
-    materials = project.material_entries.all()
     
     # Create response
     response = HttpResponse(content_type='application/pdf')
-    filename = f"{project.name.replace(' ', '_')}_report_{datetime.now().strftime('%Y%m%d')}.pdf"
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response['Content-Disposition'] = f'attachment; filename="{project.name}_report.pdf"'
     
-    # Create PDF
-    doc = SimpleDocTemplate(response, pagesize=letter)
+    # Create PDF document - landscape for better table viewing
+    doc = SimpleDocTemplate(response, pagesize=landscape(A4),
+                           rightMargin=30, leftMargin=30,
+                           topMargin=30, bottomMargin=18)
+    
+    # Container for elements
     elements = []
-    styles = getSampleStyleSheet()
     
-    # Title
+    # Styles
+    styles = getSampleStyleSheet()
     title_style = ParagraphStyle(
         'CustomTitle',
         parent=styles['Heading1'],
         fontSize=24,
-        textColor=colors.HexColor('#2c3e50'),
+        textColor=colors.HexColor('#366092'),
         spaceAfter=30,
+        alignment=TA_CENTER
     )
-    elements.append(Paragraph(f"Project Report: {project.name}", title_style))
-    elements.append(Spacer(1, 0.2 * inch))
     
-    # Project details
-    details = [
-        ['Location:', project.location or 'N/A'],
-        ['Status:', project.get_status_display()],
-        ['Start Date:', project.start_date.strftime('%Y-%m-%d')],
-        ['Budget:', f'Ksh{project.budget:,.2f}'],
-        ['Total Spent:', f'Ksh{project.total_spent:,.2f}'],
-        ['Remaining:', f'Ksh{project.remaining_budget:,.2f}'],
+    heading_style = ParagraphStyle(
+        'CustomHeading',
+        parent=styles['Heading2'],
+        fontSize=16,
+        textColor=colors.HexColor('#366092'),
+        spaceAfter=12,
+        spaceBefore=12
+    )
+    
+    # Title
+    title = Paragraph(f"Project Report: {project.name}", title_style)
+    elements.append(title)
+    elements.append(Spacer(1, 0.2*inch))
+    
+    # ===== PROJECT SUMMARY =====
+    summary_heading = Paragraph("Project Summary", heading_style)
+    elements.append(summary_heading)
+    
+    summary_data = [
+        ["Project Name:", project.name],
+        ["Location:", project.location or "N/A"],
+        ["Status:", project.get_status_display()],
+        ["Start Date:", project.start_date.strftime('%Y-%m-%d')],
+        ["End Date:", project.end_date.strftime('%Y-%m-%d') if project.end_date else "N/A"],
     ]
     
-    details_table = Table(details, colWidths=[2*inch, 4*inch])
-    details_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#e8e8e8')),
+    summary_table = Table(summary_data, colWidths=[2*inch, 4*inch])
+    summary_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f0f0f0')),
         ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
+        ('ALIGN', (1, 0), (1, -1), 'LEFT'),
         ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
         ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
     ]))
-    elements.append(details_table)
-    elements.append(Spacer(1, 0.3 * inch))
+    elements.append(summary_table)
+    elements.append(Spacer(1, 0.3*inch))
     
-    # Materials table
-    elements.append(Paragraph("Materials List", styles['Heading2']))
-    elements.append(Spacer(1, 0.1 * inch))
+    # ===== FINANCIAL SUMMARY =====
+    financial_heading = Paragraph("Financial Summary", heading_style)
+    elements.append(financial_heading)
     
-    material_data = [['Date', 'Type', 'Description', 'Qty', 'Cost']]
-    for material in materials:
+    financial_data = [
+        ["Budget:", f"Ksh {project.budget:,.2f}"],
+        ["Total Material Cost:", f"Ksh {project.total_material_cost:,.2f}"],
+        ["Total Labor Cost:", f"Ksh {project.total_labor_cost:,.2f}"],
+        ["Total Expenses:", f"Ksh {project.total_expense_cost:,.2f}"],
+        ["Total Spent:", f"Ksh {project.total_spent:,.2f}"],
+        ["Remaining Budget:", f"Ksh {project.remaining_budget:,.2f}"],
+        ["Budget Utilization:", f"{project.budget_utilization_percentage:.2f}%"],
+    ]
+    
+    financial_table = Table(financial_data, colWidths=[2*inch, 4*inch])
+    financial_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f0f0f0')),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+        ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
+        ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        # Highlight total spent row
+        ('BACKGROUND', (0, 4), (-1, 4), colors.HexColor('#fffacd')),
+        ('FONTNAME', (0, 4), (-1, 4), 'Helvetica-Bold'),
+    ]))
+    elements.append(financial_table)
+    elements.append(Spacer(1, 0.3*inch))
+    
+    # ===== MATERIALS =====
+    materials = project.material_entries.select_related('category', 'unit').all()
+    if materials.exists():
+        elements.append(PageBreak())
+        materials_heading = Paragraph("Materials", heading_style)
+        elements.append(materials_heading)
+        
+        # Table headers
+        material_data = [
+            ["Date", "Category", "Supplier", "Description", "Qty", "Unit", "Cost"]
+        ]
+        
+        for material in materials:
+            material_data.append([
+                material.purchase_date.strftime('%Y-%m-%d'),
+                material.category.name,
+                material.supplier[:20] if material.supplier else "N/A",
+                material.description[:40] + "..." if len(material.description) > 40 else material.description,
+                f"{material.quantity:.2f}",
+                material.unit.abbreviation,
+                f"Ksh {material.cost:,.2f}"
+            ])
+        
+        # Add total row
         material_data.append([
-            material.purchase_date.strftime('%Y-%m-%d'),
-            material.category.name,
-            material.description[:40],
-            f"{material.quantity} {material.unit.abbreviation}",
-            f'Ksh{material.cost:,.2f}'
+            "", "", "", "", "", 
+            "TOTAL:", 
+            f"Ksh {project.total_material_cost:,.2f}"
         ])
+        
+        material_table = Table(material_data, colWidths=[1*inch, 1*inch, 1.4*inch, 2.5*inch, 0.8*inch, 0.8*inch, 1.5*inch])
+        material_table.setStyle(TableStyle([
+            # Header row
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#366092')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            ('TOPPADDING', (0, 0), (-1, 0), 8),
+            
+            # Data rows
+            ('FONTSIZE', (0, 1), (-1, -2), 8),
+            ('ALIGN', (3, 1), (3, -2), 'RIGHT'),  # Quantity
+            ('ALIGN', (5, 1), (5, -2), 'RIGHT'),  # Cost
+            ('GRID', (0, 0), (-1, -2), 0.5, colors.grey),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#f9f9f9')]),
+            
+            # Total row
+            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#fffacd')),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('ALIGN', (5, -1), (5, -1), 'RIGHT'),
+            ('SPAN', (0, -1), (4, -1)),
+            ('GRID', (0, -1), (-1, -1), 1, colors.grey),
+        ]))
+        elements.append(material_table)
     
-    material_table = Table(material_data, colWidths=[1*inch, 1.2*inch, 2.5*inch, 1*inch, 1*inch])
-    material_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#366092')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f0f0')])
-    ]))
-    elements.append(material_table)
+    # ===== LABOR =====
+    labor_entries = project.labor_entries.select_related('category').all()
+    if labor_entries.exists():
+        elements.append(PageBreak())
+        labor_heading = Paragraph("Labor Entries", heading_style)
+        elements.append(labor_heading)
+        
+        # Table headers
+        labor_data = [
+            ["Date", "Category", "Notes", "Workers", "Rate/Day", "Total Cost"]
+        ]
+        
+        for labor in labor_entries:
+            labor_data.append([
+                labor.work_date.strftime('%Y-%m-%d'),
+                labor.category.name,
+                labor.notes[:50] + "..." if len(labor.notes) > 50 else labor.notes,
+                str(labor.number_of_workers),
+                f"Ksh {labor.rate_per_worker_per_day:,.2f}",
+                f"Ksh {labor.total_cost:,.2f}"
+            ])
+        
+        # Add total row
+        labor_data.append([
+            "", "", "", "", 
+            "TOTAL:", 
+            f"Ksh {project.total_labor_cost:,.2f}"
+        ])
+        
+        labor_table = Table(labor_data, colWidths=[1*inch, 1.5*inch, 3*inch, 1*inch, 1.2*inch, 1.3*inch])
+        labor_table.setStyle(TableStyle([
+            # Header row
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#366092')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            ('TOPPADDING', (0, 0), (-1, 0), 8),
+            
+            # Data rows
+            ('FONTSIZE', (0, 1), (-1, -2), 8),
+            ('ALIGN', (3, 1), (3, -2), 'CENTER'),  # Workers
+            ('ALIGN', (4, 1), (4, -2), 'RIGHT'),   # Rate
+            ('ALIGN', (5, 1), (5, -2), 'RIGHT'),   # Total
+            ('GRID', (0, 0), (-1, -2), 0.5, colors.grey),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#f9f9f9')]),
+            
+            # Total row
+            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#fffacd')),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('ALIGN', (4, -1), (4, -1), 'RIGHT'),
+            ('ALIGN', (5, -1), (5, -1), 'RIGHT'),
+            ('SPAN', (0, -1), (3, -1)),
+            ('GRID', (0, -1), (-1, -1), 1, colors.grey),
+        ]))
+        elements.append(labor_table)
+    
+    # ===== EXPENSES =====
+    expense_entries = project.expense_entries.select_related('category').all()
+    if expense_entries.exists():
+        elements.append(PageBreak())
+        expense_heading = Paragraph("Expenses", heading_style)
+        elements.append(expense_heading)
+        
+        # Table headers
+        expense_data = [
+            ["Date", "Category", "Description", "Payment Method", "Payee", "Amount"]
+        ]
+        
+        for expense in expense_entries:
+            expense_data.append([
+                expense.expense_date.strftime('%Y-%m-%d'),
+                expense.category.name,
+                expense.description[:50] + "..." if len(expense.description) > 50 else expense.description,
+                expense.get_payment_method_display(),
+                expense.payee[:20] if expense.payee else "N/A",
+                f"Ksh {expense.amount:,.2f}"
+            ])
+        
+        # Add total row
+        expense_data.append([
+            "", "", "", "", 
+            "TOTAL:", 
+            f"Ksh {project.total_expense_cost:,.2f}"
+        ])
+        
+        expense_table = Table(expense_data, colWidths=[1*inch, 1.3*inch, 2.8*inch, 1.3*inch, 1.3*inch, 1.3*inch])
+        expense_table.setStyle(TableStyle([
+            # Header row
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#366092')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            ('TOPPADDING', (0, 0), (-1, 0), 8),
+            
+            # Data rows
+            ('FONTSIZE', (0, 1), (-1, -2), 8),
+            ('ALIGN', (5, 1), (5, -2), 'RIGHT'),  # Amount
+            ('GRID', (0, 0), (-1, -2), 0.5, colors.grey),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#f9f9f9')]),
+            
+            # Total row
+            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#fffacd')),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('ALIGN', (4, -1), (4, -1), 'RIGHT'),  # TOTAL label aligned right
+            ('ALIGN', (5, -1), (5, -1), 'RIGHT'),  # Amount aligned right
+            ('SPAN', (0, -1), (3, -1)),  # Span columns 0-3 (Date, Category, Description, Payment Method)
+            ('GRID', (0, -1), (-1, -1), 1, colors.grey),
+        ]))
+        elements.append(expense_table)
     
     # Build PDF
     doc.build(elements)
+    
     return response
 
 
