@@ -7,6 +7,7 @@ licenses | Government Licenses & Permits | Fees for construction permits, licens
 transaction_fees | Transaction Charges | Bank fees, M-Pesa charges, and payment processing fees
 utilities | Utilities | Electricity, water, and other utility costs during construction
 equipment_rental | Equipment Rental | Rental fees for machinery, tools, and equipment
+tool_purchase | Tool Purchase | Tool purchase, reusable item purchase
 professional_services | Professional Services | Fees for architects, engineers, surveyors, and consultants
 insurance | Insurance | Construction insurance, liability coverage, and worker compensation
 waste_disposal | Waste Disposal | Cost of removing construction debris and waste management
