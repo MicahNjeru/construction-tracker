@@ -373,6 +373,19 @@ def material_create(request, project_pk):
             material.project = project
             material.created_by = request.user
             material.save()
+            
+            # Handle optional receipt upload
+            receipt_file = request.FILES.get('receipt_file')
+            if receipt_file:
+                Receipt.objects.create(
+                    material_entry=material,
+                    file=receipt_file,
+                    original_filename=receipt_file.name,
+                    file_size=receipt_file.size,
+                    is_primary=bool(request.POST.get('receipt_is_primary')),
+                    notes=request.POST.get('receipt_notes', '').strip()
+                )
+
             ActivityLog.objects.create(
                 project=project,
                 user=request.user,
@@ -403,6 +416,19 @@ def material_update(request, pk):
         form = MaterialEntryForm(request.POST, instance=material)
         if form.is_valid():
             form.save()
+            
+            # Handle optional receipt upload
+            receipt_file = request.FILES.get('receipt_file')
+            if receipt_file:
+                Receipt.objects.create(
+                    material_entry=material,
+                    file=receipt_file,
+                    original_filename=receipt_file.name,
+                    file_size=receipt_file.size,
+                    is_primary=bool(request.POST.get('receipt_is_primary')),
+                    notes=request.POST.get('receipt_notes', '').strip()
+                )
+
             ActivityLog.objects.create(
                 project=project,
                 user=request.user,

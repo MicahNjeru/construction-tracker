@@ -203,6 +203,14 @@
                                 <td class="text-end">{{ material.quantity }} {{ material.unit.abbreviation }}</td>
                                 <td class="text-end"><strong>Ksh{{ material.cost|floatformat:2 }}</strong></td>
                                 <td class="text-end">
+                                    <a href="{% url 'receipt_gallery' material.pk %}" 
+                                        class="btn btn-sm {% if material.has_receipt %}btn-outline-info{% else %}btn-outline-secondary text-muted{% endif %}"
+                                        title="{% if material.has_receipt %}{{ material.receipt_count }} receipt{{ material.receipt_count|pluralize }}{% else %}No receipts{% endif %}">
+                                        <i class="bi bi-receipt"></i>
+                                        {% if material.has_receipt %}
+                                        <span class="badge bg-info ms-1">{{ material.receipt_count }}</span>
+                                        {% endif %}
+                                    </a>
                                     <a href="{% url 'material_update' material.pk %}" class="btn btn-sm btn-outline-secondary" title="Edit">
                                         <i class="bi bi-pencil"></i>
                                     </a>
