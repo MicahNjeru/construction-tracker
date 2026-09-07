@@ -151,6 +151,7 @@
                                 <th>Category</th>
                                 <th class="text-center">Workers</th>
                                 <th class="text-end">Rate/Worker/Day</th>
+                                <th class="text-center">Days</th>
                                 <th class="text-end">Total Cost</th>
                                 <th>Notes</th>
                                 <th class="text-end">Actions</th>
@@ -165,10 +166,10 @@
                                 </td>
                                 <td class="text-center">{{ entry.number_of_workers }}</td>
                                 <td class="text-end">Ksh{{ entry.rate_per_worker_per_day|floatformat:2 }}</td>
+                                <td class="text-center">{{ entry.number_of_days }}</td>
                                 <td class="text-end">
                                     <strong>Ksh{{ entry.total_cost|floatformat:2 }}</strong>
                                 </td>
-                                <td>
                                     {% if entry.notes %}
                                     <small class="text-muted">{{ entry.notes|truncatewords:10 }}</small>
                                     {% else %}

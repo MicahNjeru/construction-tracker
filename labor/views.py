@@ -3,7 +3,7 @@ from django.contrib import messages
 from django.db.models import Sum, Count, F
 from django.shortcuts import render, redirect, get_object_or_404
 from tracker.models import Project
-from labor.models import LaborEntry, LaborCategory
+from labor.models import LaborEntry, LaborCategory, LaborReceipt
 from .forms import LaborEntryForm
 
 # Create your views here.
@@ -20,12 +20,24 @@ def labor_create(request, project_pk):
             labor.project = project
             labor.created_by = request.user
             labor.save()
+
+            receipt_file = request.FILES.get('receipt_file')
+            if receipt_file:
+                LaborReceipt.objects.create(
+                    labor_entry=labor,
+                    file=receipt_file,
+                    description=request.POST.get('receipt_description', ''),
+                    uploaded_by=request.user
+                )
+                labor.has_receipt = True
+                labor.save(update_fields=['has_receipt'])
+
             messages.success(request, 'Labor entry added successfully!')
             return redirect('project_detail', pk=project.pk)
     else:
         form = LaborEntryForm()
 
-    return render(request, 'labor/labor_form.html', {
+        return render(request, 'labor/labor_form.html', {
         'form': form,
         'project': project,
         'title': 'Add Labor Entry'
@@ -41,17 +53,29 @@ def labor_update(request, pk):
         form = LaborEntryForm(request.POST, instance=labor)
         if form.is_valid():
             form.save()
+
+            receipt_file = request.FILES.get('receipt_file')
+            if receipt_file:
+                LaborReceipt.objects.create(
+                    labor_entry=labor,
+                    file=receipt_file,
+                    description=request.POST.get('receipt_description', ''),
+                    uploaded_by=request.user
+                )
+                labor.has_receipt = True
+                labor.save(update_fields=['has_receipt'])
+
             messages.success(request, 'Labor entry updated successfully!')
             return redirect('project_detail', pk=project.pk)
-    else:
-        form = LaborEntryForm(instance=labor)
+        else:
+            form = LaborEntryForm(instance=labor)
 
-    return render(request, 'labor/labor_form.html', {
-        'form': form,
-        'project': project,
-        'title': 'Update Labor Entry',
-        'labor': labor
-    })
+        return render(request, 'labor/labor_form.html', {
+            'form': form,
+            'project': project,
+            'labor': labor,
+            'title': 'Edit Labor Entry'
+        })
 
 
 @login_required
@@ -75,7 +99,7 @@ def labor_summary(request, project_pk):
     project = get_object_or_404(Project, pk=project_pk)
 
     breakdown = project.labor_entries.values('category__name').annotate(
-        total_cost=Sum(F('number_of_workers') * F('rate_per_worker_per_day')),
+        total_cost=Sum(F('number_of_workers') * F('rate_per_worker_per_day') * F('number_of_days')),
         days=Count('id')
     ).order_by('-total_cost')
 

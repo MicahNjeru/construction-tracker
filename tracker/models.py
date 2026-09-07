@@ -178,7 +178,7 @@ class Project(models.Model):
     def total_labor_cost(self):
         """Calculate total amount spent on labor."""
         total = self.labor_entries.aggregate(
-        total=Sum(F('number_of_workers') * F('rate_per_worker_per_day'))
+        total=Sum(F('number_of_workers') * F('rate_per_worker_per_day') * F('number_of_days'))
         )['total']
         return total or Decimal('0.00')
     

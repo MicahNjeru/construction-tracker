@@ -44,7 +44,7 @@ class ExpenseEntry(models.Model):
         help_text="Total amount spent"
     )
     expense_date = models.DateField(help_text="Date when expense was incurred")
-    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='cash')
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='mpesa')
     payee = models.CharField(max_length=200, blank=True, help_text="Who was paid (vendor, government office, etc.)")
     reference_number = models.CharField(max_length=100, blank=True, help_text="Transaction reference, receipt number, or invoice number")
     notes = models.TextField(blank=True)

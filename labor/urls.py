@@ -11,3 +11,4 @@ urlpatterns = [
     path('labor/<int:pk>/update/', views.labor_update, name='labor_update'),
     path('labor/<int:pk>/delete/', views.labor_delete, name='labor_delete'),
 ]
+

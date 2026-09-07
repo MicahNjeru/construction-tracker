@@ -68,7 +68,7 @@ def dashboard(request):
     total_labor_cost = LaborEntry.objects.filter(
         project__created_by=request.user
     ).aggregate(
-        total=Sum(F('number_of_workers') * F('rate_per_worker_per_day'))
+        total=Sum(F('number_of_workers') * F('rate_per_worker_per_day') * F('number_of_days'))
     )['total'] or Decimal('0.00')
 
     # Calculate total expense cost
@@ -103,7 +103,7 @@ def dashboard(request):
     labor_breakdown = LaborEntry.objects.filter(
         project__created_by=request.user
     ).values('category__name').annotate(
-        total_cost=Sum(F('number_of_workers') * F('rate_per_worker_per_day')),
+        total_cost=Sum(F('number_of_workers') * F('rate_per_worker_per_day') * F('number_of_days')),
         count=Count('id')
     ).order_by('-total_cost')[:5]
     
@@ -132,7 +132,7 @@ def dashboard(request):
         .annotate(month=TruncMonth('work_date'))
         .values('month')
         .annotate(
-            labor_cost=Sum(F('number_of_workers') * F('rate_per_worker_per_day'))
+            labor_cost=Sum(F('number_of_workers') * F('rate_per_worker_per_day') * F('number_of_days'))
         )
     )
     
@@ -274,7 +274,7 @@ def project_detail(request, pk):
 
     # Labor breakdown by category
     labor_breakdown = project.labor_entries.values('category__name').annotate(
-        total_cost=Sum(F('number_of_workers') * F('rate_per_worker_per_day')),
+        total_cost=Sum(F('number_of_workers') * F('rate_per_worker_per_day') * F('number_of_days')),
         days=Count('id')
     ).order_by('-total_cost')
 

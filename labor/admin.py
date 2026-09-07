@@ -1,5 +1,5 @@
 from django.contrib import admin
-from labor.models import LaborCategory, LaborEntry
+from labor.models import LaborCategory, LaborEntry, LaborReceipt
 
 # Register your models here.
 
@@ -18,6 +18,7 @@ class LaborEntryAdmin(admin.ModelAdmin):
         'work_date',
         'number_of_workers',
         'rate_per_worker_per_day',
+        'number_of_days',
         'total_cost'
     ]
     list_filter = ['category', 'work_date']
@@ -30,7 +31,7 @@ class LaborEntryAdmin(admin.ModelAdmin):
             'fields': ('project', 'category', 'work_date')
         }),
         ('Costing', {
-            'fields': ('number_of_workers', 'rate_per_worker_per_day')
+            'fields': ('number_of_workers', 'rate_per_worker_per_day', 'number_of_days')
         }),
         ('Notes', {
             'fields': ('notes',)
@@ -41,5 +42,11 @@ class LaborEntryAdmin(admin.ModelAdmin):
         }),
     )
 
+
+class LaborReceiptInline(admin.TabularInline):
+    model = LaborReceipt
+    extra = 0
+    readonly_fields = ['uploaded_by', 'uploaded_at']
+    fields = ['file', 'description', 'uploaded_by', 'uploaded_at']
 
 

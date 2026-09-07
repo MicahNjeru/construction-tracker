@@ -13,7 +13,7 @@
                 <small class="text-muted">Project: {{ project.name }}</small>
             </div>
             <div class="card-body">
-                <form method="post">
+                <form method="post" enctype="multipart/form-data">
                     {% csrf_token %}
                     
                     {% if form.non_field_errors %}
@@ -41,7 +41,7 @@
                     </div>
                     
                     <div class="row">
-                        <div class="col-md-6 mb-3">
+                        <div class="col-md-4 mb-3">
                             <label for="{{ form.number_of_workers.id_for_label }}" class="form-label">Number of Workers *</label>
                             {{ form.number_of_workers }}
                             {% if form.number_of_workers.errors %}
@@ -50,13 +50,22 @@
                             <small class="form-text text-muted">How many workers of this category</small>
                         </div>
                         
-                        <div class="col-md-6 mb-3">
+                        <div class="col-md-4 mb-3">
                             <label for="{{ form.rate_per_worker_per_day.id_for_label }}" class="form-label">Rate per Worker (Ksh) *</label>
                             {{ form.rate_per_worker_per_day }}
                             {% if form.rate_per_worker_per_day.errors %}
                             <div class="text-danger small">{{ form.rate_per_worker_per_day.errors }}</div>
                             {% endif %}
                             <small class="form-text text-muted">Daily rate for one worker</small>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.number_of_days.id_for_label }}" class="form-label">Number of Days *</label>
+                            {{ form.number_of_days }}
+                            {% if form.number_of_days.errors %}
+                            <div class="text-danger small">{{ form.number_of_days.errors }}</div>
+                            {% endif %}
+                            <small class="form-text text-muted">How many days at this rate</small>
                         </div>
                     </div>
                     
@@ -73,6 +82,43 @@
                         <div class="text-danger small">{{ form.notes.errors }}</div>
                         {% endif %}
                         <small class="form-text text-muted">Additional information about this labor entry</small>
+                    </div>
+
+                    <!-- Receipt Section -->
+                    <hr>
+                    <h5 class="mb-3"><i class="bi bi-receipt"></i> Receipt</h5>
+
+                    {% if labor and labor.receipts.exists %}
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Uploaded Receipts</label>
+                        <div class="list-group mb-2">
+                            {% for receipt in labor.receipts.all %}
+                            <div class="list-group-item d-flex justify-content-between align-items-center py-2">
+                                <div>
+                                    <span class="small fw-semibold">{{ receipt.description|default:"Receipt"|truncatechars:40 }}</span>
+                                    <span class="text-muted small ms-2">{{ receipt.uploaded_at|date:"M d, Y" }}</span>
+                                </div>
+                                <a href="{{ receipt.file.url }}" class="btn btn-sm btn-outline-primary" target="_blank" title="View">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="mb-3">
+                        <label for="receipt_file" class="form-label">
+                            {% if labor and labor.receipts.exists %}Add Another Receipt{% else %}Upload Receipt (Optional){% endif %}
+                        </label>
+                        <input type="file" class="form-control" id="receipt_file" name="receipt_file"
+                            accept=".jpg,.jpeg,.png,.gif,.webp,.pdf">
+                        <small class="form-text text-muted">Accepted formats: JPG, PNG, GIF, WEBP, PDF</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="receipt_description" class="form-label">Receipt Description (Optional)</label>
+                        <input type="text" class="form-control" id="receipt_description" name="receipt_description" placeholder="e.g. Wage payment slip">
                     </div>
                     
                     <div class="d-flex justify-content-between mt-4">
@@ -91,7 +137,7 @@
         <div class="card mt-3">
             <div class="card-body">
                 <h6 class="card-title"><i class="bi bi-calculator"></i> Cost Calculator</h6>
-                <p class="text-muted small mb-2">Total Daily Cost = Number of Workers × Rate per Worker</p>
+                <p class="text-muted small mb-2">Total Cost = Number of Workers × Rate per Worker × Number of Days</p>
                 <div id="costPreview" class="alert alert-secondary">
                     <strong>Estimated Total:</strong> <span id="totalCost">Ksh 0.00</span>
                 </div>
@@ -105,18 +151,21 @@
 document.addEventListener('DOMContentLoaded', function() {
     const workersInput = document.querySelector('input[name="number_of_workers"]');
     const rateInput = document.querySelector('input[name="rate_per_worker_per_day"]');
+    const daysInput = document.querySelector('input[name="number_of_days"]');
     const totalCostSpan = document.getElementById('totalCost');
     
     function calculateTotal() {
         const workers = parseFloat(workersInput.value) || 0;
         const rate = parseFloat(rateInput.value) || 0;
-        const total = workers * rate;
+        const days = parseFloat(daysInput.value) || 0;
+        const total = workers * rate * days;
         totalCostSpan.textContent = 'Ksh ' + total.toFixed(2);
     }
     
-    if (workersInput && rateInput) {
+    if (workersInput && rateInput && daysInput) {
         workersInput.addEventListener('input', calculateTotal);
         rateInput.addEventListener('input', calculateTotal);
+        daysInput.addEventListener('input', calculateTotal);
         calculateTotal(); // Initial calculation
     }
 });

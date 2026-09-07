@@ -87,7 +87,7 @@ def expense_create(request, project_pk):
                 request, 
                 f'Expense entry "{expense.description}" added successfully!'
             )
-            return redirect('expense_list', project_pk=project.pk)
+            return redirect('project_detail', pk=project.pk)
     else:
         form = ExpenseEntryForm()
     
