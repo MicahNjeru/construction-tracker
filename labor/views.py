@@ -1,115 +1,121 @@
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
 from django.db.models import Sum, Count, F
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import redirect, get_object_or_404
+from django.urls import reverse
+from django.views import generic
 from tracker.models import Project
-from labor.models import LaborEntry, LaborCategory, LaborReceipt
+from labor.models import LaborEntry, LaborReceipt
 from .forms import LaborEntryForm
 
 # Create your views here.
 
 
-@login_required
-def labor_create(request, project_pk):
-    project = get_object_or_404(Project, pk=project_pk)
+class LaborCreateView(LoginRequiredMixin, generic.CreateView):
+    model = LaborEntry
+    form_class = LaborEntryForm
+    template_name = 'labor/labor_form.html'
 
-    if request.method == 'POST':
-        form = LaborEntryForm(request.POST)
-        if form.is_valid():
-            labor = form.save(commit=False)
-            labor.project = project
-            labor.created_by = request.user
-            labor.save()
+    def dispatch(self, request, *args, **kwargs):
+        self.project = get_object_or_404(Project, pk=kwargs['project_pk'])
+        return super().dispatch(request, *args, **kwargs)
 
-            receipt_file = request.FILES.get('receipt_file')
-            if receipt_file:
-                LaborReceipt.objects.create(
-                    labor_entry=labor,
-                    file=receipt_file,
-                    description=request.POST.get('receipt_description', ''),
-                    uploaded_by=request.user
-                )
-                labor.has_receipt = True
-                labor.save(update_fields=['has_receipt'])
+    def form_valid(self, form):
+        form.instance.project = self.project
+        form.instance.created_by = self.request.user
+        response = super().form_valid(form)
 
-            messages.success(request, 'Labor entry added successfully!')
-            return redirect('project_detail', pk=project.pk)
-    else:
-        form = LaborEntryForm()
+        receipt_file = self.request.FILES.get('receipt_file')
+        if receipt_file:
+            LaborReceipt.objects.create(
+                labor_entry=self.object,
+                file=receipt_file,
+                description=self.request.POST.get('receipt_description', ''),
+                uploaded_by=self.request.user
+            )
+            self.object.has_receipt = True
+            self.object.save(update_fields=['has_receipt'])
 
-        return render(request, 'labor/labor_form.html', {
-        'form': form,
-        'project': project,
-        'title': 'Add Labor Entry'
-    })
+        messages.success(self.request, 'Labor entry added successfully!')
+        return response
 
+    def get_success_url(self):
+        return reverse('project_detail', kwargs={'pk': self.project.pk})
 
-@login_required
-def labor_update(request, pk):
-    labor = get_object_or_404(LaborEntry, pk=pk)
-    project = labor.project
-
-    if request.method == 'POST':
-        form = LaborEntryForm(request.POST, instance=labor)
-        if form.is_valid():
-            form.save()
-
-            receipt_file = request.FILES.get('receipt_file')
-            if receipt_file:
-                LaborReceipt.objects.create(
-                    labor_entry=labor,
-                    file=receipt_file,
-                    description=request.POST.get('receipt_description', ''),
-                    uploaded_by=request.user
-                )
-                labor.has_receipt = True
-                labor.save(update_fields=['has_receipt'])
-
-            messages.success(request, 'Labor entry updated successfully!')
-            return redirect('project_detail', pk=project.pk)
-        else:
-            form = LaborEntryForm(instance=labor)
-
-        return render(request, 'labor/labor_form.html', {
-            'form': form,
-            'project': project,
-            'labor': labor,
-            'title': 'Edit Labor Entry'
-        })
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['project'] = self.project
+        context['title'] = 'Add Labor Entry'
+        return context
 
 
-@login_required
-def labor_delete(request, pk):
-    labor = get_object_or_404(LaborEntry, pk=pk)
-    project = labor.project
+class LaborUpdateView(LoginRequiredMixin, generic.UpdateView):
+    model = LaborEntry
+    form_class = LaborEntryForm
+    template_name = 'labor/labor_form.html'
+    context_object_name = 'labor'
 
-    if request.method == 'POST':
-        labor.delete()
-        messages.success(request, 'Labor entry deleted successfully!')
+    def form_valid(self, form):
+        response = super().form_valid(form)
+
+        receipt_file = self.request.FILES.get('receipt_file')
+        if receipt_file:
+            LaborReceipt.objects.create(
+                labor_entry=self.object,
+                file=receipt_file,
+                description=self.request.POST.get('receipt_description', ''),
+                uploaded_by=self.request.user
+            )
+            self.object.has_receipt = True
+            self.object.save(update_fields=['has_receipt'])
+
+        messages.success(self.request, 'Labor entry updated successfully!')
+        return response
+
+    def get_success_url(self):
+        return reverse('project_detail', kwargs={'pk': self.object.project.pk})
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['project'] = self.object.project
+        context['title'] = 'Edit Labor Entry'
+        return context
+
+
+class LaborDeleteView(LoginRequiredMixin, generic.DeleteView):
+    model = LaborEntry
+    template_name = 'labor/labor_confirm_delete.html'
+    context_object_name = 'labor'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['project'] = self.object.project
+        return context
+
+    def form_valid(self, form):
+        project = self.object.project
+        self.object.delete()
+        messages.success(self.request, 'Labor entry deleted successfully!')
         return redirect('project_detail', pk=project.pk)
 
-    return render(request, 'labor/labor_confirm_delete.html', {
-        'labor': labor,
-        'project': project
-    })
 
+class LaborSummaryView(LoginRequiredMixin, generic.TemplateView):
+    template_name = 'labor/labor_summary.html'
 
-@login_required
-def labor_summary(request, project_pk):
-    project = get_object_or_404(Project, pk=project_pk)
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        project = get_object_or_404(Project, pk=self.kwargs['project_pk'])
 
-    breakdown = project.labor_entries.values('category__name').annotate(
-        total_cost=Sum(F('number_of_workers') * F('rate_per_worker_per_day') * F('number_of_days')),
-        days=Count('id')
-    ).order_by('-total_cost')
+        breakdown = project.labor_entries.values('category__name').annotate(
+            total_cost=Sum(F('number_of_workers') * F('rate_per_worker_per_day') * F('number_of_days')),
+            days=Count('id')
+        ).order_by('-total_cost')
 
-    context = {
-        'project': project,
-        'labor_entries': project.labor_entries.all(),
-        'labor_breakdown': breakdown,
-        'total_labor_cost': project.total_labor_cost,
-    }
-
-    return render(request, 'labor/labor_summary.html', context)
-
+        context.update({
+            'project': project,
+            'labor_entries': project.labor_entries.all(),
+            'labor_breakdown': breakdown,
+            'total_labor_cost': project.total_labor_cost,
+        })
+        return context
 
