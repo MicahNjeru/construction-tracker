@@ -59,7 +59,7 @@ class MaterialEntryForm(forms.ModelForm):
     class Meta:
         model = MaterialEntry
         fields = ['category', 'description', 'quantity', 'quantity_used', 'unit', 'cost', 
-                  'purchase_date', 'supplier', 'notes']
+                  'purchase_date', 'supplier', 'reference_number', 'notes']
         widgets = {
             'category': forms.Select(attrs={
                 'class': 'form-select'
@@ -93,6 +93,10 @@ class MaterialEntryForm(forms.ModelForm):
             'supplier': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'e.g., Home Depot, John\'s Hardware'
+            }),
+            'reference_number': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'e.g., Invoice #1234, Receipt No.'
             }),
             'notes': forms.Textarea(attrs={
                 'class': 'form-control',

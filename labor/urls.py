@@ -9,5 +9,9 @@ urlpatterns = [
     # App specific URLs
     path('labor/<int:pk>/update/', views.LaborUpdateView.as_view(), name='labor_update'),
     path('labor/<int:pk>/delete/', views.LaborDeleteView.as_view(), name='labor_delete'),
+
+    # Receipts
+    path('labor/<int:labor_pk>/receipt/upload/', views.LaborReceiptUploadView.as_view(), name='labor_receipt_upload'),
+    path('labor-receipts/<int:pk>/delete/', views.LaborReceiptDeleteView.as_view(), name='labor_receipt_delete'),
 ]
 

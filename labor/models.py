@@ -31,6 +31,7 @@ class LaborEntry(models.Model):
     rate_per_worker_per_day = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal('0.00'))])
     number_of_days = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)], help_text="Number of days worked at this rate")
     notes = models.TextField(blank=True)
+    reference_number = models.CharField(max_length=100, blank=True, help_text="Transaction reference, receipt number, or invoice number")
     created_by = models.ForeignKey(User, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -6,7 +6,7 @@ from django.urls import reverse
 from django.views import generic
 from tracker.models import Project
 from labor.models import LaborEntry, LaborReceipt
-from .forms import LaborEntryForm
+from .forms import LaborEntryForm, LaborReceiptForm
 
 # Create your views here.
 
@@ -24,18 +24,6 @@ class LaborCreateView(LoginRequiredMixin, generic.CreateView):
         form.instance.project = self.project
         form.instance.created_by = self.request.user
         response = super().form_valid(form)
-
-        receipt_file = self.request.FILES.get('receipt_file')
-        if receipt_file:
-            LaborReceipt.objects.create(
-                labor_entry=self.object,
-                file=receipt_file,
-                description=self.request.POST.get('receipt_description', ''),
-                uploaded_by=self.request.user
-            )
-            self.object.has_receipt = True
-            self.object.save(update_fields=['has_receipt'])
-
         messages.success(self.request, 'Labor entry added successfully!')
         return response
 
@@ -57,18 +45,6 @@ class LaborUpdateView(LoginRequiredMixin, generic.UpdateView):
 
     def form_valid(self, form):
         response = super().form_valid(form)
-
-        receipt_file = self.request.FILES.get('receipt_file')
-        if receipt_file:
-            LaborReceipt.objects.create(
-                labor_entry=self.object,
-                file=receipt_file,
-                description=self.request.POST.get('receipt_description', ''),
-                uploaded_by=self.request.user
-            )
-            self.object.has_receipt = True
-            self.object.save(update_fields=['has_receipt'])
-
         messages.success(self.request, 'Labor entry updated successfully!')
         return response
 
@@ -118,4 +94,65 @@ class LaborSummaryView(LoginRequiredMixin, generic.TemplateView):
             'total_labor_cost': project.total_labor_cost,
         })
         return context
+
+
+class LaborReceiptUploadView(LoginRequiredMixin, generic.CreateView):
+    """Upload a receipt for a labor entry"""
+    model = LaborReceipt
+    form_class = LaborReceiptForm
+    template_name = 'labor/receipt_upload.html'
+
+    def dispatch(self, request, *args, **kwargs):
+        self.labor_entry = get_object_or_404(LaborEntry, pk=kwargs['labor_pk'])
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        form.instance.labor_entry = self.labor_entry
+        form.instance.uploaded_by = self.request.user
+        response = super().form_valid(form)
+
+        self.labor_entry.has_receipt = True
+        self.labor_entry.save(update_fields=['has_receipt'])
+
+        messages.success(self.request, 'Receipt uploaded successfully!')
+        return response
+
+    def get_success_url(self):
+        return reverse('labor_update', kwargs={'pk': self.labor_entry.pk})
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['labor'] = self.labor_entry
+        context['project'] = self.labor_entry.project
+        context['existing_receipts'] = self.labor_entry.receipts.all()
+        return context
+
+
+class LaborReceiptDeleteView(LoginRequiredMixin, generic.DeleteView):
+    """Delete a labor receipt"""
+    model = LaborReceipt
+    template_name = 'labor/receipt_confirm_delete.html'
+    context_object_name = 'receipt'
+
+    def get_queryset(self):
+        return LaborReceipt.objects.filter(labor_entry__project__created_by=self.request.user)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['labor'] = self.object.labor_entry
+        context['project'] = self.object.labor_entry.project
+        return context
+
+    def form_valid(self, form):
+        labor_entry = self.object.labor_entry
+        self.object.delete()
+
+        if not labor_entry.receipts.exists():
+            labor_entry.has_receipt = False
+            labor_entry.save(update_fields=['has_receipt'])
+
+        messages.success(self.request, 'Receipt deleted successfully!')
+        return redirect('labor_update', pk=labor_entry.pk)
+
+
 

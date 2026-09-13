@@ -379,18 +379,6 @@ class MaterialCreateView(LoginRequiredMixin, generic.CreateView):
         response = super().form_valid(form)
         material = self.object
 
-        # Handle optional receipt upload
-        receipt_file = self.request.FILES.get('receipt_file')
-        if receipt_file:
-            Receipt.objects.create(
-                material_entry=material,
-                file=receipt_file,
-                original_filename=receipt_file.name,
-                file_size=receipt_file.size,
-                is_primary=bool(self.request.POST.get('receipt_is_primary')),
-                notes=self.request.POST.get('receipt_notes', '').strip()
-            )
-
         ActivityLog.objects.create(
             project=self.project,
             user=self.request.user,
@@ -422,18 +410,6 @@ class MaterialUpdateView(LoginRequiredMixin, generic.UpdateView):
         response = super().form_valid(form)
         material = self.object
         project = material.project
-
-        # Handle optional receipt upload
-        receipt_file = self.request.FILES.get('receipt_file')
-        if receipt_file:
-            Receipt.objects.create(
-                material_entry=material,
-                file=receipt_file,
-                original_filename=receipt_file.name,
-                file_size=receipt_file.size,
-                is_primary=bool(self.request.POST.get('receipt_is_primary')),
-                notes=self.request.POST.get('receipt_notes', '').strip()
-            )
 
         ActivityLog.objects.create(
             project=project,

@@ -270,6 +270,7 @@ class MaterialEntry(models.Model):
     purchase_date = models.DateField()
     supplier = models.CharField(max_length=200, blank=True, help_text="Where/who you got it from")
     notes = models.TextField(blank=True)
+    reference_number = models.CharField(max_length=100, blank=True, help_text="Transaction reference, receipt number, or invoice number")
     has_receipt = models.BooleanField(default=False)
     created_by = models.ForeignKey(User, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)

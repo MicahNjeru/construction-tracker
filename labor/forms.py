@@ -12,6 +12,7 @@ class LaborEntryForm(forms.ModelForm):
             'number_of_workers',
             'rate_per_worker_per_day',
             'number_of_days',
+            'reference_number',
             'notes'
         ]
         widgets = {
@@ -31,6 +32,10 @@ class LaborEntryForm(forms.ModelForm):
             'number_of_days': forms.NumberInput(attrs={
                 'class': 'form-control',
                 'min': 1
+            }),
+            'reference_number': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'e.g., Invoice #1234, Receipt No.'
             }),
             'notes': forms.Textarea(attrs={
                 'class': 'form-control',
