@@ -3,6 +3,7 @@ from django.apps import AppConfig
 
 class LaborConfig(AppConfig):
     name = 'labor'
+    verbose_name = 'Labor'
 
     def ready(self):
         _patch_jazzmin_format_html()
