@@ -43,7 +43,7 @@ class MaterialUnit(models.Model):
     
     class Meta:
         ordering = ['name']
-        verbose_name_plural = ['Material Units']
+        verbose_name_plural = 'Material Units'
     
     def __str__(self):
         return f"{self.name} ({self.abbreviation})"
